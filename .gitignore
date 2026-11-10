@@ -46,3 +46,5 @@ app.*.symbols
 
 # Obfuscation related
 app.*.map.json
+FLUTTER_PORT_PROMPT.md
+UI Mockup/link.txt
