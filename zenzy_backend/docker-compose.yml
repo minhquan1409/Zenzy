@@ -1,0 +1,12 @@
+# Chạy thử server trong container trên máy: docker compose up --build
+# Cấu hình (MONGODB_URI, JWT_SECRET...) đọc từ file .env cạnh file này.
+services:
+  api:
+    build: .
+    image: zenzy-api:latest
+    env_file: .env
+    environment:
+      PORT: "8080"
+    ports:
+      - "8787:8080"
+    restart: unless-stopped

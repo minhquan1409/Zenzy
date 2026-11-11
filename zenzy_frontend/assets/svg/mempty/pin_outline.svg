@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="69" height="108" viewBox="0 0 69 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Map pin outline">
+<path d="M34.5 0C15 0 0 15 0 35C0 63 34.5 108 34.5 108C34.5 108 69 63 69 35C69 15 54 0 34.5 0Z" fill="white"/>
+<mask id="stroke0_0_23" fill="white">
+<path d="M34.5 0C15 0 0 15 0 35C0 63 34.5 108 34.5 108C34.5 108 69 63 69 35C69 15 54 0 34.5 0Z"/>
+</mask>
+<path stroke-width="5" stroke-linecap="round" stroke="#F96167" d="M34.5 0 C15 0 0 15 0 35 C0 63 34.5 108 34.5 108 C34.5 108 69 63 69 35 C69 15 54 0 34.5 0 Z"/>
+</g>
+</svg>

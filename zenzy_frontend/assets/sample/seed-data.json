@@ -1,0 +1,126 @@
+{
+  "map": {
+    "main": {
+      "pins": [
+        { "id": "friend-sarah", "kind": "friend", "lat": 10.806858, "lng": 106.732814, "avatar": "s03_avatar_sarah" },
+        { "id": "friend-alex", "kind": "friend", "lat": 10.800619, "lng": 106.736924, "avatar": "s03_avatar_alex" },
+        { "id": "event-soccer", "kind": "place", "lat": 10.799812, "lng": 106.733132, "icon": "soccer", "color": "coral", "target_type": "event", "target_id": "weekly-soccer-run" },
+        { "id": "shop-coffee", "kind": "place", "lat": 10.807335, "lng": 106.737055, "icon": "coffee", "color": "navy", "target_type": "shop", "target_id": "zenzy-coffee" },
+        { "id": "shop-bag", "kind": "place", "lat": 10.80594, "lng": 106.735803, "icon": "bag", "color": "navy", "target_type": "shop", "target_id": "zenzy-coffee" }
+      ],
+      "activity": { "avatar": "s03_avatar_chloe", "title": "Chloe started Weekly Soccer Run!", "subtitle": "150m away · Happening right now", "event_id": "weekly-soccer-run" }
+    },
+    "flow": {
+      "pins": [
+        { "id": "flow-sarah", "kind": "friend", "lat": 10.806968, "lng": 106.732833, "avatar": "flow_avatar_sarah", "label": "Sarah · 120m" },
+        { "id": "flow-alex", "kind": "friend", "lat": 10.800472, "lng": 106.736457, "avatar": "flow_avatar_alex", "label": "Alex · 80m" },
+        { "id": "flow-coffee", "kind": "place", "lat": 10.80728, "lng": 106.737073, "icon": "coffee", "color": "navy", "target_type": "shop", "target_id": "zenzy-coffee" },
+        { "id": "flow-bag", "kind": "place", "lat": 10.805885, "lng": 106.735822, "icon": "bag", "color": "navy", "target_type": "shop", "target_id": "zenzy-coffee" },
+        { "id": "flow-fire", "kind": "place", "lat": 10.80361, "lng": 106.735019, "icon": "fire", "color": "coral", "target_type": "event", "target_id": "weekly-soccer-run" }
+      ],
+      "activity": { "avatar": "flow_avatar_chloe", "title": "Chloe started a firepit hangout!", "subtitle": "150m away · Happening right now", "event_id": "weekly-soccer-run" }
+    }
+  },
+  "new_pin_location": { "lat": 10.801592, "lng": 106.737559, "place": "Riverside Courts" },
+  "shops": [
+    {
+      "id": "zenzy-coffee",
+      "name": "Zenzy Coffee & Tea",
+      "address": "24 Xuân Thủy, Thảo Điền",
+      "full_address": "24 Xuân Thủy, Thảo Điền, Ho Chi Minh City",
+      "distance_text": "· 120m away",
+      "rating_text": "4.9 (128)",
+      "open_text": "Open until 22:00",
+      "hours_text": "Every day · 07:00 – 22:00",
+      "opening": "07:00",
+      "closing": "22:00",
+      "cover": "s08_cafe",
+      "badge": "NEIGHBORHOOD FAVORITE",
+      "featured_title": "Featured update: New seasonal matcha drinks",
+      "featured_subtitle": "Just posted · 12 photos",
+      "categories": ["All", "Matcha", "Coffee", "Tea"],
+      "menu": [
+        { "section": "MATCHA FAVORITES", "name": "Signature Matcha Latte", "desc": "Ceremonial matcha · fresh milk · iced", "price": "58,000", "sale_price": "29,000", "photo": "s08_drink_matcha" },
+        { "section": "COFFEE & TEA", "name": "Iced Oat Latte", "desc": "Double espresso · creamy oat milk", "price": "55,000", "photo": "s08_drink_oat" },
+        { "name": "Jasmine Peach Tea", "desc": "Jasmine tea · fresh peach · light honey", "price": "45,000", "photo": "s08_drink_peach" }
+      ],
+      "news": [
+        { "image": "s08_cafe", "author": "Zenzy Coffee & Tea", "time_text": "2h ago", "title": "New seasonal matcha drinks", "body": "Fresh matcha, seasonal fruits, and a cozy corner to catch up with friends." }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "weekly-soccer-run",
+      "title": "Weekly Soccer Run at Riverside Courts",
+      "description": "A friendly 5-a-side with the neighborhood crew. Bring your boots, water & good energy.",
+      "cover": "s09_soccer",
+      "badge": "SPORTS · ALL LEVELS WELCOME",
+      "date_text": "Saturday, 7 November",
+      "time_text": "17:00–18:30 · GMT+7 · Every Saturday",
+      "price_text": "Free",
+      "place": "Riverside Courts · Court 2",
+      "address": "206 Nguyễn Văn Hưởng, Thảo Điền",
+      "organizer_name": "Chloe",
+      "organizer_initials": "DK",
+      "conversation_id": "zoe",
+      "participants_count": 8,
+      "capacity": 12,
+      "friends_text": "2 friends are joining",
+      "participants": [
+        { "initials": "MA", "name": "Minh Anh", "sub": "@minhanh · Your friend", "tone": "lilac" },
+        { "initials": "QH", "name": "Quang Huy", "sub": "@quanghuy · Your friend", "tone": "mint" },
+        { "initials": "LN", "name": "Linh Nguyễn", "sub": "@linh.ng · Joined today", "tone": "peach" }
+      ]
+    }
+  ],
+  "posts": [
+    { "id": "post-liam", "author_name": "Liam Chen", "author_avatar": "s10_avatar_liam", "time_text": "12 mins ago", "place": "Soho District", "kind": "photo", "text": "Checked out the new artisanal match store today. Incredible vibes and local community atmosphere! 🍵✨", "image": "s10_post_photo", "likes": 142, "comments": 28 },
+    { "id": "post-sloane", "author_name": "Sloane Miller", "author_avatar": "s10_avatar_sloane", "time_text": "1 hr ago", "place": "Riverside Park", "kind": "video", "text": "Weekly community run was a major success! Over 40 people showed up today 🏃‍♀️☀️", "image": "s10_video", "likes": 389, "comments": 45 },
+    { "id": "post-maya", "author_name": "Maya Lopez", "author_avatar": "s10_avatar_maya", "time_text": "Yesterday", "place": "Cultural Hub", "kind": "event", "text": "Sunset Rooftop Clay Workshop & Social 🎨🍷", "event_when": "Sat, June 14 • 6:30 PM - 8:30 PM", "event_where": "Vibe Rooftop Studios, Street 4A", "likes": 24, "comments": 12 }
+  ],
+  "conversations": [
+    {
+      "id": "zoe", "name": "Zoe Anderson", "avatar": "s11_avatar_zoe", "detail_avatar": "conv_avatar_zoe", "time_text": "2 mins ago", "preview": "Are we still meeting at the park at 5?", "unread": true, "status": "Online now",
+      "messages": [
+        { "id": "m1", "kind": "text", "mine": true, "text": "Hey Zoe! Fancy a walk in the park later?", "time_text": "9:20 AM" },
+        { "id": "m2", "kind": "text", "mine": false, "text": "Yes please! Riverside Park sounds lovely 🌿", "time_text": "9:21 AM" },
+        { "id": "m3", "kind": "place", "mine": false, "place_name": "Riverside Park", "place_sub": "Thảo Điền · Main entrance", "time_text": "9:22 AM" },
+        { "id": "m4", "kind": "text", "mine": true, "text": "Love that spot. Meet at the main entrance?", "time_text": "9:23 AM" },
+        { "id": "m5", "kind": "text", "mine": false, "text": "Are we still meeting at the park at 5?", "time_text": "9:39 AM" },
+        { "id": "m6", "kind": "text", "mine": true, "text": "Yes! See you at 5 😊", "time_text": "9:41 AM", "seen": true }
+      ]
+    },
+    { "id": "soccer", "name": "Weekly Soccer Run", "avatar": "s11_avatar_soccer", "time_text": "1 hr ago", "preview": "Sami: Count me in for +2 tomorrow!", "unread": false, "status": "8 members", "messages": [] },
+    { "id": "marcus", "name": "Marcus Vance", "avatar": "s11_avatar_marcus", "time_text": "3 hrs ago", "preview": "That cafe looks unreal, let's go.", "unread": false, "status": "Offline", "messages": [] },
+    { "id": "pet-club", "name": "Pet Club (4)", "avatar": "s11_avatar_pet", "time_text": "Yesterday", "preview": "Yuki: Look at this little guy!", "unread": true, "status": "4 members", "messages": [] },
+    { "id": "leah", "name": "Leah Thorne", "avatar": "s11_avatar_leah", "time_text": "Jan 12", "preview": "Sent you a photo post.", "unread": false, "status": "Offline", "messages": [] }
+  ],
+  "notifications": [
+    { "id": "n1", "section": "TODAY", "icon": "message_circle", "badge_color": "#FFECEC", "lead": "Zoe Anderson sent you a ", "bold": "new message", "time_text": "2 mins ago", "unread": true },
+    { "id": "n2", "section": "TODAY", "icon": "calendar", "badge_color": "#EAF2FF", "lead": "Maya RSVP'd to your upcoming event ", "bold": "Clay Workshop", "time_text": "2 hrs ago", "unread": true },
+    { "id": "n3", "section": "TODAY", "icon": "map_pin", "badge_color": "#E6FFF0", "lead": "Your friend Liam Chen is ", "bold": "nearby in Soho", "time_text": "4 hrs ago", "unread": false },
+    { "id": "n4", "section": "THIS WEEK", "icon": "ticket", "badge_color": "#FFF8E7", "lead": "Local Deal: 20% off at ", "bold": "Blue Bottle Coffee", "time_text": "2 days ago", "unread": false },
+    { "id": "n5", "section": "THIS WEEK", "icon": "heart_off", "badge_color": "#FFECEC", "lead": "Marcus Vance and 3 others ", "bold": "liked your post", "time_text": "4 days ago", "unread": false }
+  ],
+  "profile": {
+    "name": "Clara Jenkins",
+    "email": "clara@zenzy.app",
+    "bio": "Design enthusiast & part-time urban explorer. Always seeking the best local coffee. ☕️🚶‍♀️",
+    "avatar": "s13_avatar_clara",
+    "friends_text": "1,248",
+    "events_text": "34",
+    "posts_text": "89",
+    "photos": ["s13_grid0", "s13_grid1", "s13_grid2", "s13_grid3", "s13_grid4", "s13_grid5"]
+  },
+  "privacy": {
+    "ghost_mode": true,
+    "audience": "friends",
+    "precise": false,
+    "excluded": [
+      { "initials": "MA", "name": "Minh Anh", "sub": "@minhanh", "tone": "lilac" },
+      { "initials": "QH", "name": "Quang Huy", "sub": "@quanghuy", "tone": "mint" },
+      { "initials": "LN", "name": "Linh Nguyễn", "sub": "@linh.ng", "tone": "peach" }
+    ]
+  }
+}

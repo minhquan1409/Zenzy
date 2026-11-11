@@ -1,0 +1,23 @@
+{
+  // Chọn cấu hình ở tab Run and Debug rồi bấm F5. Chọn thiết bị ở góc phải dưới thanh trạng thái.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Emulator Android: app gọi server chạy trên máy tính qua 10.0.2.2:8787 (mặc định trong env.dart).
+      "name": "Zenzy (emulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      // Điện thoại thật, nối qua cáp USB hoặc gỡ lỗi không dây (Wi-Fi):
+      // chuyển cổng 8787 của điện thoại về máy tính (adb reverse) trước khi chạy.
+      "name": "Zenzy (điện thoại thật)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "preLaunchTask": "adb reverse 8787",
+      "toolArgs": ["--dart-define=API_BASE_URL=http://127.0.0.1:8787/v1"]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Cho mọi thiết bị Android đang cắm: localhost:8787 trên điện thoại = localhost:8787 trên máy tính.
+      "label": "adb reverse 8787",
+      "type": "shell",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "command": "$adb = \"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\"; $ok = $false; foreach ($line in (& $adb devices)) { if ($line -match '^(\\S+)\\s+device$') { & $adb -s $Matches[1] reverse tcp:8787 tcp:8787 | Out-Null; Write-Host \"adb reverse ok: $($Matches[1])\"; $ok = $true } }; if (-not $ok) { Write-Host 'Không thấy thiết bị nào. Cắm cáp và bật USB debugging.'; exit 1 }",
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": []
+    }
+  ]
+}

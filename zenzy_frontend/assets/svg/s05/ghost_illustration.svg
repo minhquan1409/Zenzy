@@ -1,0 +1,27 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="144" height="94" viewBox="0 0 144 94" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="Friendly ghost illustration">
+<mask id="stroke0_0_21" fill="white">
+<path d="M134.37 28.5769C138.159 46.4041 116.269 66.1617 85.4766 72.7068C54.6843 79.2519 26.6504 70.106 22.8611 52.2789C19.0718 34.4517 40.9621 14.6941 71.7544 8.14903C102.547 1.60393 130.581 10.7498 134.37 28.5769Z"/>
+</mask>
+<path stroke-width="2" stroke="#D9D0F2" d="M134.37 28.5769 C138.159 46.4041 116.269 66.1617 85.4766 72.7068 C54.6843 79.2519 26.6504 70.106 22.8611 52.2789 C19.0718 34.4517 40.9621 14.6941 71.7544 8.14903 C102.547 1.60393 130.581 10.7498 134.37 28.5769 Z"/>
+<ellipse id="Ground" cx="73.5" cy="84" rx="36.5" ry="4" fill="#EEEAFB"/>
+<circle id="Sparkle" cx="17" cy="35" r="3" fill="#7C66DC"/>
+<circle id="Sparkle_2" cx="124.5" cy="64.5" r="2.5" fill="#7C66DC"/>
+<g id="Ghost silhouette">
+<use xlink:href="#stroke1_0_21" fill="white"/>
+<mask id="stroke2_0_21" fill="white">
+<use xlink:href="#stroke1_0_21"/>
+</mask>
+<path stroke-width="4" stroke="#C3B6E8" d="M44 77.0297 V37.3084 C44 0.897202 102 0.897202 102 37.3084 V77.0297 C98.282 80.7076 93.8205 79.2364 88.6154 72.6162 C83.4103 80.7076 78.2051 81.0754 73 73.7196 C67.7949 81.0754 62.5897 80.7076 57.3846 72.6162 C52.1795 79.2364 47.7179 80.7076 44 77.0297 Z"/>
+</g>
+<ellipse id="Eye" cx="63.5" cy="41.5" rx="2.5" ry="3.5" fill="#7C66DC"/>
+<ellipse id="Eye_2" cx="83.5" cy="41.5" rx="2.5" ry="3.5" fill="#7C66DC"/>
+<ellipse id="Cheek" cx="58.5" cy="50" rx="4.5" ry="2" fill="#EBCBD9"/>
+<ellipse id="Cheek_2" cx="88.5" cy="50" rx="4.5" ry="2" fill="#EBCBD9"/>
+<path id="Smile" d="M70 48C72.6667 53.3333 75.3333 53.3333 78 48" stroke-width="1.5" stroke="#7C66DC"/>
+<path id="Twinkle" d="M118 11V17M118 17V23M118 17H112M118 17H124" stroke-width="1.5" stroke="#7C66DC"/>
+</g>
+<defs>
+<path id="stroke1_0_21" d="M44 77.0297V37.3084C44 0.897202 102 0.897202 102 37.3084V77.0297C98.2821 80.7076 93.8205 79.2364 88.6154 72.6162C83.4103 80.7076 78.2051 81.0754 73 73.7196C67.7949 81.0754 62.5897 80.7076 57.3846 72.6162C52.1795 79.2364 47.7179 80.7076 44 77.0297Z"/>
+</defs>
+</svg>

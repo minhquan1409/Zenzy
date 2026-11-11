@@ -1,0 +1,31 @@
+# Triển khai trên một máy AWS EC2: API + Caddy (tự xin và gia hạn chứng chỉ HTTPS cho tên miền).
+#
+#   DOMAIN=api.ten-mien-cua-ban.com docker compose -f deploy/docker-compose.aws.yml up -d --build
+#
+# Yêu cầu: bản ghi DNS A của DOMAIN trỏ về IP của máy; Security Group mở cổng 80 và 443;
+# file .env (MONGODB_URI, JWT_SECRET...) nằm ở thư mục zenzy_backend.
+services:
+  api:
+    build: ..
+    image: zenzy-api:latest
+    env_file: ../.env
+    environment:
+      PORT: "8080"
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    command: caddy reverse-proxy --from ${DOMAIN:?Cần đặt biến DOMAIN} --to api:8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
