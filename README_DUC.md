@@ -29,7 +29,7 @@ cp .env.example .env
 | Biến | Ý nghĩa |
 |---|---|
 | `MONGODB_URI` | Chuỗi kết nối MongoDB Atlas |
-| `MONGODB_DB` | Tên database, mặc định `zenzylocaldemo` (DB riêng cho localhost, cùng cluster với `Zenzy`) |
+| `MONGODB_DB` | Tên database, mặc định `zenzylocaldemo` (DB riêng cho localhost, cùng cluster với `Zenzy`)  Tự tạo của riêng mình vì bản chính ko dc truy cập tùy tiện , phải thông qua backend và api
 | `JWT_SECRET` | Chuỗi ngẫu nhiên dài để ký token |
 | `JWT_EXPIRES_IN` | Thời hạn token, mặc định `30d` |
 | `SEED_ON_BOOT` | `false` để tắt tự nạp dữ liệu mẫu |
@@ -145,7 +145,8 @@ docker build -t zenzy-api .
 2. Chạy `deploy/docker-compose.aws.yml` trên EC2 (chi tiết ở `zenzy_backend/README.md`).
 3. Báo nhóm app URL mới.
 
-## 7. Chưa làm
+## 7. Lưu ý : 
+đây là bản localhost , ko có tính năng này : chỉ có bản chính thức với api đã gửi, đã deploy trên aws gọi về mới có đầy đủ tính năng này (protocal gọi như trong file swagger và postman có thể dùng để test thử
 
 - Realtime (Socket.IO): vị trí bạn bè và tin nhắn chưa cập nhật tức thời.
 - Bạn bè / chặn, báo cáo vi phạm, trang admin.
