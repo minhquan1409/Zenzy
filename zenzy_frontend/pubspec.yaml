@@ -10,7 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   # Đa ngôn ngữ Tiếng Anh & Tiếng Việt (NFR-19)
-  # intl: ^0.20.2   # bật lại khi làm tính năng tương ứng
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
 
   # 1. State Management & DI (MVVM Pattern - Mục 4.4 & 4.5)
   provider: ^6.1.2
@@ -20,8 +22,8 @@ dependencies:
 
   # 3. Network: REST API & Real-time WebSocket (Mục 4.1 & 4.5)
   dio: ^5.5.0+1
-  # socket_io_client: ^2.0.3+1   # bật lại khi làm tính năng tương ứng
-  # connectivity_plus: ^6.0.3   # bật lại khi làm tính năng tương ứng
+  socket_io_client: ^2.0.3+1
+  connectivity_plus: ^6.0.3
 
   # 4. Local Storage Strategy - 4 Tiers (Mục 5.2, NFR-05 -> NFR-08)
   # Tier 1: Secure Storage (JWT Access/Refresh Tokens, Google ID Token)
@@ -29,42 +31,40 @@ dependencies:
   # Tier 2: App Preferences (Ghost Mode flag, Notification toggles, Theme)
   shared_preferences: ^2.2.3
   # Tier 3: Structured Data & Offline Queue (NoSQL Local Cache)
-  # hive: ^2.2.3   # bật lại khi làm tính năng tương ứng
-  # hive_flutter: ^1.1.0   # bật lại khi làm tính năng tương ứng
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
   # Tier 4: Media Cache (Avatars, Shop menus, Feed photos)
-  # cached_network_image: ^3.3.1   # bật lại khi làm tính năng tương ứng
-  # flutter_cache_manager: ^3.3.2   # bật lại khi làm tính năng tương ứng
+  cached_network_image: ^3.3.1
+  flutter_cache_manager: ^3.3.2
 
   # 5. Maps, GPS Location & Permissions (UC-03, UC-04, Mục 3.2)
-  # Bản đồ thật, miễn phí, không cần API key: MapLibre + tile OpenFreeMap
-  maplibre_gl: ^0.28.0
+  google_maps_flutter: ^2.7.0
   geolocator: ^12.0.0
-  # permission_handler: ^11.3.1   # bật lại khi làm tính năng tương ứng
+  permission_handler: ^11.3.1
 
   # 6. Authentication & Push Notifications (UC-01, UC-22)
-  # google_sign_in: ^6.2.1   # bật lại khi làm tính năng tương ứng
-  # firebase_core: ^3.1.1   # bật lại khi làm tính năng tương ứng
-  # firebase_messaging: ^15.0.2   # bật lại khi làm tính năng tương ứng
+  google_sign_in: ^6.2.1
+  firebase_core: ^3.1.1
+  firebase_messaging: ^15.0.2
 
   # 7. Media & Utilities (Nén ảnh <= 500KB theo Mục 3.2, Idempotency Key theo NFR-06)
-  # image_picker: ^1.1.2   # bật lại khi làm tính năng tương ứng
-  # flutter_image_compress: ^2.3.0   # bật lại khi làm tính năng tương ứng
-  # uuid: ^4.4.0   # bật lại khi làm tính năng tương ứng
-  # equatable: ^2.0.5   # bật lại khi làm tính năng tương ứng
+  image_picker: ^1.1.2
+  flutter_image_compress: ^2.3.0
+  uuid: ^4.4.0
+  equatable: ^2.0.5
 
   # 8. UI Helpers (Skeleton Loading theo Mục 3.3, Icons)
   cupertino_icons: ^1.0.8
-  flutter_svg: ^2.3.2
-  # shimmer: ^3.0.0   # bật lại khi làm tính năng tương ứng
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   # Unit Test & Mocking (Đảm bảo >= 70% coverage cho ViewModel & Repository - NFR-18)
-  # mocktail: ^1.0.4   # bật lại khi làm tính năng tương ứng
-  # hive_generator: ^2.0.1   # bật lại khi làm tính năng tương ứng
-  # build_runner: ^2.4.11   # bật lại khi làm tính năng tương ứng
+  mocktail: ^1.0.4
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.11
 
   # Linter chuẩn cho Flutter (NFR-18)
   flutter_lints: ^4.0.0
@@ -72,38 +72,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   # Kích hoạt sinh code đa ngôn ngữ tự động từ thư mục lib/l10n
+  generate: true
 
   assets:
     - assets/images/
-    - assets/sample/
-    - assets/svg/conv/
-    - assets/svg/cshop/
-    - assets/svg/flow/
-    - assets/svg/mempty/
-    - assets/svg/reg/
-    - assets/svg/s01/
-    - assets/svg/s02/
-    - assets/svg/s03/
-    - assets/svg/s04/
-    - assets/svg/s05/
-    - assets/svg/s06/
-    - assets/svg/s07/
-    - assets/svg/s08/
-    - assets/svg/s09/
-    - assets/svg/s10/
-    - assets/svg/s11/
-    - assets/svg/s12/
-    - assets/svg/s13/
-    - assets/svg/s14/
-    - assets/svg/shop/
-
-  fonts:
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/inter.ttf
-    - family: Rubik
-      fonts:
-        - asset: assets/fonts/rubik.ttf
-    - family: Gabarito
-      fonts:
-        - asset: assets/fonts/gabarito.ttf
+    - assets/icons/
