@@ -8,5 +8,6 @@ services:
     environment:
       PORT: "8080"
     ports:
-      - "8787:8080"
+      # Chỉ mở trên localhost của máy. 8787 phải khớp `address.port` trong src/common/config.ts.
+      - "127.0.0.1:8787:8080"
     restart: unless-stopped

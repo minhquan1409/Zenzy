@@ -7,10 +7,11 @@ Server NestJS + MongoDB cho app Zenzy, đóng gói bằng Docker để chạy tr
 ```bash
 cp .env.example .env      # điền MONGODB_URI và JWT_SECRET
 npm install
-PORT=8787 npm run dev     # http://localhost:8787/v1/health
+npm run dev               # in ra địa chỉ đang chạy
+npm run health            # (terminal khác) gọi <địa chỉ>/v1/health, thấy {"status":"ok"} là được
 ```
 
-Hoặc chạy trong container (cổng 8787 của máy → 8080 trong container):
+Hoặc chạy trong container (cổng ánh xạ ghi trong `docker-compose.yml`):
 
 ```bash
 docker compose up --build
@@ -20,17 +21,40 @@ Lần chạy đầu, nếu database còn trống, server tự nạp dữ liệu 
 (đúng nội dung thiết kế Figma). Nạp lại bằng `npm run seed`; lệnh này chỉ ghi đè tài liệu mẫu,
 không xoá dữ liệu người dùng tạo.
 
+## Địa chỉ server: chỉ một file
+
+Server chỉ lắng nghe trên loopback của máy (localhost), máy khác trong mạng không gọi được.
+Host, cổng, URL công khai và origin CORS nằm ở **một chỗ duy nhất**: khối `address` trong
+[`src/common/config.ts`](src/common/config.ts). `main.ts`, `healthcheck.ts`, Docker health check
+và lệnh `npm run health` đều lấy địa chỉ từ đó.
+
+Khi deploy, sửa trong khối `address`:
+
+| Khoá | Đổi thành |
+|---|---|
+| `host` | giao diện mạng cần lắng nghe (hoặc giữ nguyên và đặt `LISTEN_ALL_INTERFACES=true` — image Docker đã đặt sẵn) |
+| `port` | cổng của server thật |
+| `publicUrl` | URL công khai của API, không gồm `/v1` |
+| `corsOrigin` | danh sách origin của web client |
+
+Ngoại lệ duy nhất: `docker-compose.yml` (chạy thử container trên máy) ghi cổng ánh xạ
+`127.0.0.1:8787:8080`, vì Docker không đọc được file TypeScript. Đổi `port` thì sửa cả dòng đó.
+
+App (nhóm app phụ trách) chỉ cần trỏ tới `publicUrl` + `/v1`. Mặc định khi chạy localhost:
+`http://127.0.0.1:8787/v1` (emulator/điện thoại Android dùng `adb reverse tcp:8787 tcp:8787`).
+
 ## Biến môi trường
 
 | Biến | Ý nghĩa |
 |---|---|
-| `PORT` | Cổng lắng nghe (mặc định 8080) |
 | `MONGODB_URI` | Chuỗi kết nối MongoDB Atlas |
-| `MONGODB_DB` | Tên database (mặc định `Zenzy`) |
+| `MONGODB_DB` | Tên database (mặc định `zenzylocaldemo` cho bản localhost; DB `Zenzy` cũ dùng khi deploy) |
 | `JWT_SECRET` | Khoá ký JWT, chuỗi ngẫu nhiên dài |
 | `JWT_EXPIRES_IN` | Thời hạn token (mặc định `30d`) |
-| `CORS_ORIGIN` | Origin được phép, cách nhau bởi dấu phẩy; `*` = tất cả |
 | `SEED_ON_BOOT` | `false` để tắt tự nạp dữ liệu mẫu |
+
+Địa chỉ cũng có thể ghi đè tạm bằng biến môi trường `HOST`, `PORT`, `PUBLIC_URL`, `CORS_ORIGIN`,
+`LISTEN_ALL_INTERFACES` (nền tảng như Docker/AWS tự đặt `PORT`), nhưng giá trị gốc luôn ở `config.ts`.
 
 ## API (prefix `/v1`)
 
@@ -74,11 +98,8 @@ Lỗi luôn có dạng `{ code, message, timestamp }`.
    ```
 
    Caddy tự xin chứng chỉ HTTPS. Kiểm tra: `https://api.ten-mien.com/v1/health`.
-6. Build app trỏ về tên miền:
-
-   ```bash
-   flutter build apk --dart-define=API_BASE_URL=https://api.ten-mien.com/v1
-   ```
+6. Sửa `publicUrl` trong `src/common/config.ts` thành tên miền đó, rồi báo nhóm app URL mới
+   (`https://api.ten-mien.com/v1`).
 
 Muốn dùng ECS Fargate / App Runner thay cho EC2: đẩy image `zenzy-api` (từ `Dockerfile`) lên ECR,
 cấu hình cổng container 8080, health check `/v1/health`, và đặt các biến môi trường ở trên

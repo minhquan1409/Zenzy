@@ -9,7 +9,7 @@ import { AllExceptionsFilter } from './common/util.js';
 async function bootstrap(): Promise<void> {
   assertConfig();
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('v1');
+  app.setGlobalPrefix(config.apiPrefix);
   // Nhật ký request: METHOD đường-dẫn mã-trạng-thái thời-gian.
   const http = new Logger('Request');
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -20,8 +20,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors({ origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',') });
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();
-  await app.listen(config.port, '0.0.0.0');
-  new Logger('Bootstrap').log(`Zenzy API đang chạy ở cổng ${config.port} (prefix /v1)`);
+  await app.listen(config.port, config.host);
+  new Logger('Bootstrap').log(`Zenzy API đang chạy ở ${config.apiUrl} (lắng nghe ${config.host}:${config.port})`);
 }
 
 bootstrap().catch((error) => {

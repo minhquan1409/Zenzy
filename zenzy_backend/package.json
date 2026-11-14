@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "dev": "tsc -p tsconfig.json && node --env-file-if-exists=.env dist/main.js",
+    "health": "node --env-file-if-exists=.env dist/healthcheck.js",
     "seed": "tsc -p tsconfig.json && node --env-file-if-exists=.env dist/seed.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
