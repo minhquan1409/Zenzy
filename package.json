@@ -1,0 +1,13 @@
+{
+  "name": "zenzy",
+  "private": true,
+  "description": "Zenzy API (zenzy_backend), branch duc: backend only. Run `npm install` here once after cloning.",
+  "scripts": {
+    "postinstall": "node scripts/setup.js",
+    "setup": "node scripts/setup.js",
+    "server": "npm --prefix zenzy_backend run start:dev",
+    "test": "npm --prefix zenzy_backend test",
+    "check": "npm --prefix zenzy_backend run typecheck && npm --prefix zenzy_backend run lint && npm --prefix zenzy_backend test",
+    "docs": "npm --prefix zenzy_backend run docs"
+  }
+}

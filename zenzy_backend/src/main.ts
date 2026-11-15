@@ -1,30 +1,15 @@
-import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import type { NextFunction, Request, Response } from 'express';
-import { AppModule } from './app.module.js';
-import { assertConfig, config } from './common/config.js';
-import { AllExceptionsFilter } from './common/util.js';
+import { createApp } from './bootstrap';
+import { AppConfig } from './core/config';
 
-async function bootstrap(): Promise<void> {
-  assertConfig();
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix(config.apiPrefix);
-  // Nhật ký request: METHOD đường-dẫn mã-trạng-thái thời-gian.
-  const http = new Logger('Request');
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const started = Date.now();
-    res.on('finish', () => http.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - started}ms`));
-    next();
-  });
-  app.enableCors({ origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',') });
-  app.useGlobalFilters(new AllExceptionsFilter());
-  app.enableShutdownHooks();
+async function main(): Promise<void> {
+  const app = await createApp();
+  const config = app.get(AppConfig);
+  // Host và cổng lấy từ src/core/address.ts (mặc định 127.0.0.1 = chỉ máy này gọi được).
   await app.listen(config.port, config.host);
-  new Logger('Bootstrap').log(`Zenzy API đang chạy ở ${config.apiUrl} (lắng nghe ${config.host}:${config.port})`);
+  new Logger('Main').log(
+    `Zenzy API listening on http://${config.host}:${config.port} (REST under /v1, Socket.IO at /socket.io, database "${config.mongoDbName}")`,
+  );
 }
 
-bootstrap().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+void main();

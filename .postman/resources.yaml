@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: 70c69204-8712-48e3-8d15-c6a0c90ef911
+
+localResources:
+  specs:
+    - ../zenzy_backend/docs/openapi.yaml

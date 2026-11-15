@@ -1,0 +1,4061 @@
+{
+  "info": {
+    "name": "Zenzy API (1.0.0)",
+    "description": "Every operation of the Zenzy server, generated from docs/openapi.yaml.\n\n**Start here**\n1. Open the collection > Variables and set `username` (a free name) and `email` (an inbox you can read).\n2. Send Auth > \"Sign-up step 1\", copy the 6-digit code from the e-mail into the variable `code`, send \"Sign-up step 2\".\n   The tokens are stored automatically and every other request uses them. Later, \"Sign in\" does the same.\n3. Requests that create something (event, shop, post, chat) store its id for the requests after them.\n\nAccess tokens live 15 minutes: send Auth > \"Exchange a refresh token\" (or \"Sign in\") when requests start answering 401.\nThe Admin folder needs an ADMIN account in `admin_username` / `admin_password`.\nThe server limits how often some routes may be called (429 with `retry_after`), so do not run the collection in a loop.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://zenzy.dpdns.org",
+      "type": "string",
+      "description": "Server address without /v1. Local server: http://127.0.0.1:3100"
+    },
+    {
+      "key": "username",
+      "value": "postman_tester",
+      "type": "string",
+      "description": "Account used by the collection (3-30: a-z 0-9 _ .). Change it to a name that is free"
+    },
+    {
+      "key": "password",
+      "value": "Postman-test-123",
+      "type": "string",
+      "description": "Password of that account"
+    },
+    {
+      "key": "email",
+      "value": "you@example.com",
+      "type": "string",
+      "description": "A real inbox of yours: the 6-digit sign-up code is sent here"
+    },
+    {
+      "key": "date_of_birth",
+      "value": "2000-05-01",
+      "type": "string"
+    },
+    {
+      "key": "code",
+      "value": "",
+      "type": "string",
+      "description": "The 6-digit code from the sign-up e-mail (filled automatically on a local server)"
+    },
+    {
+      "key": "reset_code",
+      "value": "",
+      "type": "string",
+      "description": "The 6-digit code from the password-reset e-mail (filled automatically on a local server)"
+    },
+    {
+      "key": "google_id_token",
+      "value": "paste-a-google-id-token-here",
+      "type": "string",
+      "description": "A Google ID token, only for POST /auth/google"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Filled by register/verify and login"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Filled by register/verify, login and refresh"
+    },
+    {
+      "key": "my_user_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by register/verify and login"
+    },
+    {
+      "key": "admin_username",
+      "value": "",
+      "type": "string",
+      "description": "An ADMIN account, only for the Admin folder"
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_access_token",
+      "value": "",
+      "type": "string",
+      "description": "Filled by POST /admin/login"
+    },
+    {
+      "key": "download_user",
+      "value": "",
+      "type": "string",
+      "description": "Only for GET /internal/download-auth"
+    },
+    {
+      "key": "download_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "other_user_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Another user: filled by GET /users (first result), or paste an id"
+    },
+    {
+      "key": "search_username",
+      "value": "zen",
+      "type": "string",
+      "description": "Text for GET /users (at least 3 characters)"
+    },
+    {
+      "key": "latitude",
+      "value": "10.7725",
+      "type": "string",
+      "description": "Centre used by the map, events and NEARBY feed requests"
+    },
+    {
+      "key": "longitude",
+      "value": "106.698",
+      "type": "string"
+    },
+    {
+      "key": "friend_request_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /friends/requests"
+    },
+    {
+      "key": "event_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /events"
+    },
+    {
+      "key": "event_request_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /events/{event_id}/requests"
+    },
+    {
+      "key": "shop_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /shops"
+    },
+    {
+      "key": "deal_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /shops/{shop_id}/deals"
+    },
+    {
+      "key": "post_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /posts"
+    },
+    {
+      "key": "conversation_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by POST /events (the event chat) or POST /conversations"
+    },
+    {
+      "key": "notification_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by GET /notifications (first item)"
+    },
+    {
+      "key": "report_id",
+      "value": "000000000000000000000000",
+      "type": "string",
+      "description": "Filled by GET /admin/reports (first item)"
+    },
+    {
+      "key": "push_token",
+      "value": "postman-test-device-token-0001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Sign-up with e-mail code, sign-in, tokens, password reset",
+      "item": [
+        {
+          "name": "Sign-up step 1 - send the e-mail code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/register answers 202\", function () {",
+                  "  if ([202].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.dev_code) pm.collectionVariables.set(\"code\", j.dev_code);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"date_of_birth\": \"{{date_of_birth}}\",\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Set the collection variables `username` and `email` first. On the deployed server the 6-digit code arrives by e-mail: copy it into the variable `code`, then send \"verify\".\n\nValidates the data and e-mails a 6-digit code (valid 15 minutes). No account exists until `POST /auth/register/verify`. Registering again with the same e-mail replaces the pending sign-up. At most 5 sign-ups per IP every 15 minutes.\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 409: `USERNAME_TAKEN` or `EMAIL_TAKEN`\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`\n- 503: `MAIL_NOT_CONFIGURED`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Send a new sign-up code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/register/resend answers 202\", function () {",
+                  "  if ([202].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.dev_code) pm.collectionVariables.set(\"code\", j.dev_code);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "register",
+                "resend"
+              ]
+            },
+            "description": "Same answer whether or not a sign-up is pending. 3 per address and 10 per IP every 15 minutes.\n\nErrors:\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sign-up step 2 - confirm the code, create the account and sign in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/register/verify answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.tokens) {",
+                  "    pm.collectionVariables.set(\"access_token\", j.tokens.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", j.tokens.refresh_token);",
+                  "    pm.collectionVariables.set(\"my_user_id\", j.user.id);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "register",
+                "verify"
+              ]
+            },
+            "description": "Needs the variable `code` (from the sign-up e-mail). Saves the tokens for every later request.\n\nErrors:\n- 400: `INVALID_VERIFICATION_CODE` (wrong or expired) or `SIGNUP_EXPIRED` (5th wrong code: sign up again)\n- 409: `USERNAME_TAKEN` / `EMAIL_TAKEN` (taken since step 1)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "E-mail a password-reset code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/password/forgot answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.dev_code) pm.collectionVariables.set(\"reset_code\", j.dev_code);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{username}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/password/forgot",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "password",
+                "forgot"
+              ]
+            },
+            "description": "The answer is the same whether or not the account exists or has an e-mail. 10 requests per IP every 15 minutes.\n\nErrors:\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`\n- 503: `MAIL_NOT_CONFIGURED`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Set a new password with the e-mailed code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/password/reset answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{username}}\",\n  \"code\": \"{{reset_code}}\",\n  \"new_password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/password/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "password",
+                "reset"
+              ]
+            },
+            "description": "Needs the variable `reset_code` (from the password-reset e-mail).\n\nSigns out every session and clears the login lock.\n\nErrors:\n- 400: `INVALID_RESET_CODE` (5 tries per code)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sign in with username and password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/login answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.tokens) {",
+                  "    pm.collectionVariables.set(\"access_token\", j.tokens.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", j.tokens.refresh_token);",
+                  "    pm.collectionVariables.set(\"my_user_id\", j.user.id);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Wrong passwords in a row lock the account: 5 = 1 minute, 10 = 5 minutes, 15 = 10 minutes (`429 ACCOUNT_LOCKED` with `retry_after`), 20 = `403 PASSWORD_RESET_REQUIRED` until the password is reset. Admin accounts are refused here and use `POST /admin/login`.\n\nErrors:\n- 401: `INVALID_CREDENTIALS`\n- 403: `ACCOUNT_SUSPENDED` (message has the reason) or `PASSWORD_RESET_REQUIRED`\n- 429: `ACCOUNT_LOCKED` (with `retry_after`) or `TOO_MANY_ATTEMPTS` (30 failures / 15 min per IP)",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Exchange a refresh token for a new token pair",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/refresh answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.access_token) {",
+                  "    pm.collectionVariables.set(\"access_token\", j.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", j.refresh_token);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Each refresh token works once. A token used again more than 10 seconds later is treated as stolen: every token of that sign-in is revoked (`REFRESH_TOKEN_REUSED`) and the user must log in again.\n\nErrors:\n- 401: `INVALID_REFRESH_TOKEN` or `REFRESH_TOKEN_REUSED`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sign in or sign up with a Google ID token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/google answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.tokens) {",
+                  "    pm.collectionVariables.set(\"access_token\", j.tokens.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", j.tokens.refresh_token);",
+                  "    pm.collectionVariables.set(\"my_user_id\", j.user.id);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"{{google_id_token}}\",\n  \"username\": \"{{username}}\",\n  \"date_of_birth\": \"{{date_of_birth}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/google",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "google"
+              ]
+            },
+            "description": "Needs a real Google ID token in the variable `google_id_token`; without one the answer is 401 INVALID_GOOGLE_TOKEN.\n\nThe first time, `400 PROFILE_REQUIRED` asks for `username` and `date_of_birth`; send the same token again with them.\n\nErrors:\n- 400: `PROFILE_REQUIRED` or `INVALID_INPUT`\n- 401: `INVALID_GOOGLE_TOKEN`\n- 403: `ACCOUNT_SUSPENDED` or `ADMIN_WEB_ONLY`\n- 409: `USERNAME_TAKEN`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "description": "The signed-in user's own profile and account",
+      "item": [
+        {
+          "name": "Own profile, privacy and notification settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me"
+              ]
+            },
+            "description": "Errors:\n- 401: `UNAUTHENTICATED`: missing or expired access token (refresh and retry)"
+          }
+        },
+        {
+          "name": "Update own profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /me answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Postman Tester\",\n  \"bio\": \"Testing the Zenzy API\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me"
+              ]
+            },
+            "description": "Changing `email` also needs `current_password` (or a fresh Google `id_token` for Google-only accounts).\n\nErrors:\n- 400: `INVALID_INPUT` or `INVALID_MEDIA_URL`\n- 403: `REAUTH_REQUIRED`\n- 409: `EMAIL_TAKEN`"
+          }
+        },
+        {
+          "name": "Change the password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/password answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"{{password}}\",\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "password"
+              ]
+            },
+            "description": "Every other session is signed out. Hide this option when `has_password` is false.\n\nErrors:\n- 400: `WRONG_PASSWORD`\n- 409: `NO_PASSWORD` (Google-only account)"
+          }
+        },
+        {
+          "name": "Record guardian consent (users under 16)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/guardian-consent answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/guardian-consent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "guardian-consent"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Search users by username prefix",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /users answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.items && j.items[0] && j.items[0].id) pm.collectionVariables.set(\"other_user_id\", j.items && j.items[0] && j.items[0].id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/users?username={{search_username}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{search_username}}"
+                }
+              ]
+            },
+            "description": "Saves the first result as `other_user_id`, used by the friend, block, chat and report requests.\n\nAt least 3 characters, at most 10 results, blocked users excluded. Users who turned `discoverable` off appear only for their exact username. 30 searches an hour per account.\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        },
+        {
+          "name": "A user's public profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /users/{user_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/users/{{other_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{other_user_id}}"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Privacy and location",
+      "item": [
+        {
+          "name": "Location and search privacy settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me/privacy answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me/privacy",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "privacy"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Change privacy settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/privacy answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ghost_mode\": false,\n  \"sharing_enabled\": true,\n  \"audience\": \"FRIENDS\",\n  \"share_until\": null,\n  \"precise\": true,\n  \"discoverable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/privacy",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "privacy"
+              ]
+            },
+            "description": "Turning Ghost Mode on or sharing off deletes the stored location and tells friends to remove the marker.\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 403: `GUARDIAN_CONSENT_REQUIRED` (under 16)"
+          }
+        },
+        {
+          "name": "Send the current position",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/location answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 10.7725,\n  \"longitude\": 106.698,\n  \"accuracy\": 12\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/location",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "location"
+              ]
+            },
+            "description": "Overwrites the single stored position (it expires after 15 minutes). Send every 15 s while moving and every 2 min when still, only while `sharing_enabled` is true and `ghost_mode` is false.\n\nErrors:\n- 409: `SHARING_OFF` (stop sending)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Map and search",
+      "item": [
+        {
+          "name": "Friends, events and shops around a point (one call for the map)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /map/nearby answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/map/nearby?latitude={{latitude}}&longitude={{longitude}}&radius=5000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "map",
+                "nearby"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "{{latitude}}"
+                },
+                {
+                  "key": "longitude",
+                  "value": "{{longitude}}"
+                },
+                {
+                  "key": "radius",
+                  "value": "5000",
+                  "description": "Metres"
+                },
+                {
+                  "key": "types",
+                  "value": "friends,events,shops",
+                  "description": "Comma-separated; default all",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        },
+        {
+          "name": "Keyword search over shops and events",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /search answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/search?q=cafe&latitude={{latitude}}&longitude={{longitude}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "cafe"
+                },
+                {
+                  "key": "type",
+                  "value": "SHOP",
+                  "disabled": true
+                },
+                {
+                  "key": "latitude",
+                  "value": "{{latitude}}",
+                  "description": "With longitude"
+                },
+                {
+                  "key": "longitude",
+                  "value": "{{longitude}}"
+                },
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friends and blocking",
+      "item": [
+        {
+          "name": "Friends, or pending requests",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /friends answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/friends?status=ACCEPTED",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "friends"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACCEPTED"
+                },
+                {
+                  "key": "q",
+                  "value": "text",
+                  "description": "Filter by name",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Send a friend request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /friends/requests answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.request_id) pm.collectionVariables.set(\"friend_request_id\", j.request_id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver_id\": \"{{other_user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/friends/requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "friends",
+                "requests"
+              ]
+            },
+            "description": "Errors:\n- 403: `BLOCKED`\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)\n- 409: `DUPLICATE_REQUEST`"
+          }
+        },
+        {
+          "name": "Accept or reject a friend request (recipient only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /friends/requests/{request_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"ACCEPT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/friends/requests/{{friend_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "friends",
+                "requests",
+                "{{friend_request_id}}"
+              ]
+            },
+            "description": "Only the user who received the request can answer it, so with one account this answers 403 NOT_RECIPIENT.\n\nErrors:\n- 403: `NOT_RECIPIENT`\n- 409: `ALREADY_ANSWERED`"
+          }
+        },
+        {
+          "name": "Mark a friend as close friend (or not)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /friends/{user_id}/close answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"close\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/friends/{{other_user_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "friends",
+                "{{other_user_id}}",
+                "close"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Unfriend, or withdraw a pending request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /friends/{user_id} answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/friends/{{other_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "friends",
+                "{{other_user_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Block a user (the friendship ends)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /blocks answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{other_user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/blocks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "blocks"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Users I blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /blocks answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/blocks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "blocks"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Unblock (the friendship is not restored)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /blocks/{user_id} answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/blocks/{{other_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "blocks",
+                "{{other_user_id}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Create an event (omit start_time for a live pin starting now)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /events answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.id) pm.collectionVariables.set(\"event_id\", j.id);",
+                  "  if (j.conversation_id) pm.collectionVariables.set(\"conversation_id\", j.conversation_id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional: a retry with the same key returns the first response"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman test meetup\",\n  \"type\": \"EVENT\",\n  \"description\": \"Created by the Postman collection\",\n  \"latitude\": 10.7725,\n  \"longitude\": 106.698,\n  \"place_name\": \"Ben Thanh\",\n  \"end_time\": \"{{in_2_hours}}\",\n  \"max_participants\": 10,\n  \"audience\": \"EVERYONE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events"
+              ]
+            },
+            "description": "Errors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 409: `EVENT_LIMIT` (5 active events)\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Events I host and events I joined",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me/events answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "events"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Active events around a point",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /events answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/events?latitude={{latitude}}&longitude={{longitude}}&radius=5000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "{{latitude}}"
+                },
+                {
+                  "key": "longitude",
+                  "value": "{{longitude}}"
+                },
+                {
+                  "key": "radius",
+                  "value": "5000",
+                  "description": "Metres"
+                },
+                {
+                  "key": "type",
+                  "value": "EVENT",
+                  "disabled": true
+                },
+                {
+                  "key": "when",
+                  "value": "NOW",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        },
+        {
+          "name": "Event detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /events/{event_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Edit an event (host only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /events/{event_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman test meetup (edited)\",\n  \"max_participants\": 12\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_HOST`\n- 409: `EVENT_NOT_ACTIVE` or `MAX_BELOW_APPROVED`\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Participants (non-hosts see APPROVED only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /events/{event_id}/participants answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/participants",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "participants"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "description": "Host only",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Ask to join an event (the host is notified)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /events/{event_id}/requests answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.request_id) pm.collectionVariables.set(\"event_request_id\", j.request_id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional: a retry with the same key returns the first response"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "requests"
+              ]
+            },
+            "description": "A host cannot join their own event (400 OWN_EVENT): use an `event_id` of another user to see the 201.\n\nA new request is allowed after cancelling or leaving, but not after being rejected or removed.\n\nErrors:\n- 400: `OWN_EVENT`\n- 403: `BLOCKED_BY_HOST`\n- 409: `EVENT_FULL`, `DUPLICATE_REQUEST` or `EVENT_ENDED`"
+          }
+        },
+        {
+          "name": "Approve or reject a join request (host only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /events/{event_id}/requests/{request_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/requests/{{event_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "requests",
+                "{{event_request_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_HOST`\n- 409: `EVENT_FULL` or `REQUEST_NOT_PENDING`"
+          }
+        },
+        {
+          "name": "Cancel my pending request, or leave the event",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /events/{event_id}/requests/me answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/requests/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "requests",
+                "me"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Remove a member (host only; the seat is released)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /events/{event_id}/members/{user_id} answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/members/{{other_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "members",
+                "{{other_user_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_HOST`\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Cancel an event (host only; members are notified)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /events/{event_id}/cancel answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Test finished\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/events/{{event_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{event_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_HOST`\n- 409: `EVENT_NOT_ACTIVE`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shops and deals",
+      "item": [
+        {
+          "name": "Register a shop (starts as PENDING until an admin approves it)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /shops answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.id) pm.collectionVariables.set(\"shop_id\", j.id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Cafe\",\n  \"address\": \"1 Le Loi, District 1\",\n  \"latitude\": 10.7725,\n  \"longitude\": 106.698,\n  \"description\": \"Created by the Postman collection\",\n  \"menu\": [\n    {\n      \"name\": \"Iced latte\",\n      \"price\": 45000\n    }\n  ],\n  \"hours\": \"07:00 – 22:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/shops",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops"
+              ]
+            },
+            "description": "Errors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "My shops (any status, with the reject reason)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me/shops answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me/shops",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "shops"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Shop detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /shops/{shop_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/shops/{{shop_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops",
+                "{{shop_id}}"
+              ]
+            },
+            "description": "Errors:\n- 404: Not found (unless APPROVED or yours)"
+          }
+        },
+        {
+          "name": "Edit a shop (owner; a REJECTED shop goes back to PENDING)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /shops/{shop_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Edited by the Postman collection\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/shops/{{shop_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops",
+                "{{shop_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_OWNER`\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Flash deals of a shop",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /shops/{shop_id}/deals answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/shops/{{shop_id}}/deals?status=ACTIVE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops",
+                "{{shop_id}}",
+                "deals"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Create a flash deal (owner of an approved shop)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /shops/{shop_id}/deals answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.id) pm.collectionVariables.set(\"deal_id\", j.id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Happy hour\",\n  \"discount\": \"-20%\",\n  \"end_time\": \"{{in_2_hours}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/shops/{{shop_id}}/deals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops",
+                "{{shop_id}}",
+                "deals"
+              ]
+            },
+            "description": "The shop must be approved by an admin first (PATCH /admin/shops/{shop_id}); otherwise 403 SHOP_NOT_APPROVED.\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 403: `SHOP_NOT_APPROVED` or `NOT_OWNER`"
+          }
+        },
+        {
+          "name": "Edit a deal, or end it early with status CANCELLED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /shops/{shop_id}/deals/{deal_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CANCELLED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/shops/{{shop_id}}/deals/{{deal_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "shops",
+                "{{shop_id}}",
+                "deals",
+                "{{deal_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_OWNER`\n- 409: `DEAL_NOT_ACTIVE`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feed",
+      "item": [
+        {
+          "name": "Create a post (text or at least one photo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /posts answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.id) pm.collectionVariables.set(\"post_id\", j.id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional: a retry with the same key returns the first response"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello from Postman\",\n  \"place_name\": \"Ben Thanh\",\n  \"latitude\": 10.7725,\n  \"longitude\": 106.698\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/posts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts"
+              ]
+            },
+            "description": "Errors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Posts I saved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me/saved-posts answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me/saved-posts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "saved-posts"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Feed (newest first, 20 per page)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /posts answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts?feed=FOR_YOU",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "feed",
+                  "value": "FOR_YOU",
+                  "description": "FOLLOWING = friends; NEARBY needs latitude and longitude (5 km)"
+                },
+                {
+                  "key": "author_id",
+                  "value": "665f1c2ab7e4a1d2c3f4a5b6",
+                  "description": "One user's posts",
+                  "disabled": true
+                },
+                {
+                  "key": "latitude",
+                  "value": "10.7725",
+                  "disabled": true
+                },
+                {
+                  "key": "longitude",
+                  "value": "106.698",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "A post's `latitude` / `longitude` are exact only for the author and the author's friends; everyone else gets them rounded to 3 decimals (about 100 m).\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 429: `TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`"
+          }
+        },
+        {
+          "name": "One post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /posts/{post_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}"
+              ]
+            },
+            "description": "Errors:\n- 404: Hidden"
+          }
+        },
+        {
+          "name": "Edit the text of my post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /posts/{post_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello from Postman (edited)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_AUTHOR`\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Like a post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /posts/{post_id}/like answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/like",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "like"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Save a post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /posts/{post_id}/save answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/save",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "save"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Comments (newest first)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /posts/{post_id}/comments answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Add a comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /posts/{post_id}/comments answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Nice post\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "comments"
+              ]
+            },
+            "description": "Errors:\n- 422: `BANNED_KEYWORD`: the text contains a word that is not allowed"
+          }
+        },
+        {
+          "name": "Remove my like",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /posts/{post_id}/like answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/like",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "like"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Remove a post from my saved list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /posts/{post_id}/save answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}/save",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}",
+                "save"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Delete my post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /posts/{post_id} answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/posts/{{post_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                "{{post_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_AUTHOR`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Get a ticket to upload one image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /uploads/sign answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"POST_PHOTO\",\n  \"content_type\": \"image/jpeg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/uploads/sign",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "uploads",
+                "sign"
+              ]
+            },
+            "description": "Errors:\n- 503: `UPLOADS_NOT_CONFIGURED`"
+          }
+        },
+        {
+          "name": "Upload target in local development (no S3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /uploads/local answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/uploads/local",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "uploads",
+                "local"
+              ]
+            },
+            "description": "Local development only. Use the `upload_url` and `fields` returned by POST /uploads/sign; clients never build this call themselves.\n\nClients never build this call themselves; they post to the `upload_url` returned by `/uploads/sign`.\n\nErrors:\n- 400: `INVALID_INPUT` (the message lists the fields)\n- 403: Signature wrong or expired",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Start a direct or group chat with friends",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /conversations answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.id) pm.collectionVariables.set(\"conversation_id\", j.id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DIRECT\",\n  \"member_ids\": [\n    \"{{other_user_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/conversations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations"
+              ]
+            },
+            "description": "Direct chats are only possible between friends (403 NOT_FRIENDS otherwise).\n\nAn existing direct chat is returned again. Event chats are created with the event.\n\nErrors:\n- 403: `NOT_FRIENDS`"
+          }
+        },
+        {
+          "name": "My conversations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /conversations answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "DIRECT",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mute or unmute a conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /conversations/{id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"muted\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/{{conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_A_MEMBER`"
+          }
+        },
+        {
+          "name": "Messages, newest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /conversations/{id}/messages answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "before",
+                  "value": "{{in_2_hours}}",
+                  "description": "Pass `next_before` for older messages",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_A_MEMBER`"
+          }
+        },
+        {
+          "name": "Send a message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /conversations/{id}/messages answers 201\", function () {",
+                  "  if ([201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional: a retry with the same key returns the first response"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ]
+            },
+            "description": "Errors:\n- 403: `NOT_A_MEMBER` or `BLOCKED`"
+          }
+        },
+        {
+          "name": "Mark a conversation as read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /conversations/{id}/read answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/{{conversation_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "read"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Remove a conversation from my list (until a new message arrives)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /conversations/{id} answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/{{conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Which notification types send a push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me/notification-settings answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/me/notification-settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "notification-settings"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Turn notification types on or off",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/notification-settings answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CHAT_MESSAGE\": true,\n  \"EVENT_UPDATE\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/notification-settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "notification-settings"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Register a push (FCM) token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PUT /me/device-tokens answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{push_token}}\",\n  \"platform\": \"ANDROID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/device-tokens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "device-tokens"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "My notifications (newest first)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /notifications answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.items && j.items[0] && j.items[0].id) pm.collectionVariables.set(\"notification_id\", j.items && j.items[0] && j.items[0].id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mark every notification as read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /notifications/read-all answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/notifications/read-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mark one notification read or unread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /notifications/{id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"read\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/notifications/{{notification_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "notifications",
+                "{{notification_id}}"
+              ]
+            },
+            "description": "Errors:\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        },
+        {
+          "name": "Remove a push token (call at logout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /me/device-tokens answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{push_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me/device-tokens",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "device-tokens"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Report a post, event, shop or user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /reports answers 200 or 201\", function () {",
+                  "  if ([200,201].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Optional: a retry with the same key returns the first response"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_type\": \"USER\",\n  \"target_id\": \"{{other_user_id}}\",\n  \"reason\": \"SPAM\",\n  \"note\": \"Postman test report\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/reports",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "reports"
+              ]
+            },
+            "description": "Posts and events are hidden automatically after 3 different reporters. Shops and users never are: only an admin hides, blocks or bans them.\n\nErrors:\n- 400: `OWN_CONTENT`\n- 404: `NOT_FOUND` (also for hidden items and users who blocked you)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Needs an ADMIN account (sign in with `POST /admin/login`)",
+      "item": [
+        {
+          "name": "Sign in to the admin web page (ADMIN accounts only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /admin/login answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.tokens) pm.collectionVariables.set(\"admin_access_token\", j.tokens.access_token);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/admin/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "login"
+              ]
+            },
+            "description": "Careful: 3 wrong passwords block your IP from the admin area for 24 hours.\n\n3 wrong tries from one IP in 24 hours block that IP from this route and every `/admin/*` route for 24 hours (`403 IP_BLOCKED`) and e-mail the administrator.\n\nErrors:\n- 401: `INVALID_CREDENTIALS` (the message says how many tries are left)\n- 403: `IP_BLOCKED` (with `retry_after`) or `ACCOUNT_SUSPENDED`",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Reported items, most reported first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /admin/reports answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});",
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.items && j.items[0] && j.items[0].report_id) pm.collectionVariables.set(\"report_id\", j.items && j.items[0] && j.items[0].report_id);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/reports?status=OPEN",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "OPEN"
+                },
+                {
+                  "key": "cursor",
+                  "value": "text",
+                  "description": "`next_cursor` of the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Decide a report (resolves every open report on that item)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /admin/reports/{report_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"DISMISS\",\n  \"reason\": \"Postman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/admin/reports/{{report_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "reports",
+                "{{report_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`\n- 409: `ALREADY_RESOLVED`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Shops by review status (oldest first)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /admin/shops answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/shops?status=PENDING",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "shops"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve or reject a shop",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /admin/shops/{shop_id} answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/admin/shops/{{shop_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "shops",
+                "{{shop_id}}"
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`\n- 409: `SHOP_NOT_PENDING`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Users, with report counts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /admin/users answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "text",
+                  "description": "Username prefix",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend or reactivate a user (suspending signs the user out everywhere)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /admin/users/{user_id}/status answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\",\n  \"reason\": \"Postman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/admin/users/{{other_user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{other_user_id}}",
+                "status"
+              ]
+            },
+            "description": "Errors:\n- 403: `FORBIDDEN` (admin role required) or `IP_BLOCKED`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Password check of the APK download page (called by the web server, not by apps)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /internal/download-auth answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/internal/download-auth",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "internal",
+                "download-auth"
+              ]
+            },
+            "description": "Called by the web server for the /download/ page, not by apps. 10 wrong passwords block your IP for 24 hours.\n\nCaddy `forward_auth` target for `/download/`. Uses HTTP Basic credentials. 10 wrong passwords from one IP in 24 hours block that IP for 24 hours.\n\nErrors:\n- 401: Asks for the password (`WWW-Authenticate` header)\n- 403: This IP is blocked\n- 503: The download password is not configured",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{download_user}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{download_password}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Health check (no /v1 prefix)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /health answers 200\", function () {",
+                  "  if ([200].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sign out and delete the test account",
+      "description": "Ends the session and removes the test account. Run this folder last.",
+      "item": [
+        {
+          "name": "End this sign-in (all of its tokens)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /auth/logout answers 204\", function () {",
+                  "  if ([204].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Delete the account and all of its data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /me answers 202\", function () {",
+                  "  if ([202].indexOf(pm.response.code) < 0) throw new Error(\"status \" + pm.response.code + \": \" + pm.response.text());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "me"
+              ]
+            },
+            "description": "Deletes the test account and all of its data. Keep it as the last request.\n\nErrors:\n- 403: `REAUTH_FAILED`"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.collectionVariables.set(\"in_2_hours\", new Date(Date.now() + 2 * 3600 * 1000).toISOString());"
+        ]
+      }
+    }
+  ]
+}

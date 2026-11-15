@@ -1,111 +1,168 @@
-# Zenzy API
+# Zenzy server
 
-Server NestJS + MongoDB cho app Zenzy, đóng gói bằng Docker để chạy trên AWS.
+Backend API for the Zenzy app, built from `Zenzy_Specification.pdf` (sections 2.3, 2.5, 3, 4 and 5).
 
-## Chạy trên máy
+| | Choice (spec 4.4) |
+|---|---|
+| Language / framework | TypeScript, **Node.js + NestJS 11**, REST under `/v1` |
+| Database | **MongoDB** only (Atlas in production): 2dsphere, TTL and unique indexes, JSON Schema validators, multi-document transactions |
+| Real time | **Socket.IO** in the same process |
+| Auth | Username + password (**bcrypt**, separate `credentials` collection) and **Google ID-token** verification; **JWT** access tokens (15 min) + hashed, rotated refresh tokens (30 days) |
+| Media | **S3** signed uploads + CloudFront (spec allows "S3-compatible storage or Cloudinary"; S3 chosen because the target is AWS) |
+| Push | **FCM HTTP v1** (optional) |
+| Validation | zod (spec leaves it open; small and explicit) |
+| Hosting | AWS EC2 + Docker + Caddy, see [docs/DEPLOY-AWS.md](docs/DEPLOY-AWS.md) |
+
+Endpoint list with request and response shapes for the Android app: **[docs/API.md](docs/API.md)**.
+
+## Layout
+
+```
+src/
+  core/           config, Mongo connection + schema/indexes, central authorisation layer
+                  (access.service.ts), Socket.IO gateway, notifications/push, banned words,
+                  idempotency, media, scheduled jobs
+  common/http.ts  error format, auth guard, validation helpers, pagination
+  auth/ users/ location/ friends/ events/ shops/ posts/ chat/ notifications/ moderation/
+scripts/db-init.ts  apply schema, create the first admin, seed banned keywords
+test/               end-to-end tests (real HTTP + Socket.IO against an in-memory replica set)
+deploy/aws/         CloudFormation stack + deploy script
+docs/               API reference, AWS deployment guide
+ci/                 GitHub Actions workflow (copy to .github/workflows/ to enable)
+```
+
+All visibility decisions (who sees a location, event, shop or post) live in
+`src/core/access.service.ts` and are used by both REST reads and socket emits (NFR-09, spec 4.8).
+
+## Run locally
+
+Requirements: Node.js 22.9+ (24 LTS recommended) and Docker Desktop.
 
 ```bash
-cp .env.example .env      # điền MONGODB_URI và JWT_SECRET
+cd zenzy_backend
 npm install
-npm run dev               # in ra địa chỉ đang chạy
-npm run health            # (terminal khác) gọi <địa chỉ>/v1/health, thấy {"status":"ok"} là được
+cp .env.example .env            # then set JWT_SECRET
+docker compose -f docker-compose.dev.yml up -d --wait   # MongoDB 7 single-node replica set
+npm run db:init                 # optional: schema is also applied at start-up
+npm run start:dev               # prints the address (default http://127.0.0.1:3100/v1, Socket.IO on the same origin)
+curl http://127.0.0.1:3100/health
+npm run seed:demo               # optional demo data; add `-- --live` to keep demo friends moving
 ```
 
-Hoặc chạy trong container (cổng ánh xạ ghi trong `docker-compose.yml`):
+Create a local admin and banned words:
 
 ```bash
-docker compose up --build
+ADMIN_USERNAME=admin ADMIN_PASSWORD='local-admin-password' BANNED_KEYWORDS='word1,word2' npm run db:init
 ```
 
-Lần chạy đầu, nếu database còn trống, server tự nạp dữ liệu mẫu từ `seed/seed-data.json`
-(đúng nội dung thiết kế Figma). Nạp lại bằng `npm run seed`; lệnh này chỉ ghi đè tài liệu mẫu,
-không xoá dữ liệu người dùng tạo.
+(PowerShell: `$env:ADMIN_USERNAME='admin'; $env:ADMIN_PASSWORD='...'; npm run db:init`.)
 
-## Địa chỉ server: chỉ một file
+**Server address: one file.** Host, port, docs port, local MongoDB URI and the deployed base URL live only in
+[`src/core/address.ts`](src/core/address.ts); `main.ts`, `config.ts` and the scripts (`seed:demo`, `docs`,
+`docs:postman`) read them from there. The local server listens on `127.0.0.1` only, so other machines on the
+network cannot reach it. To deploy or change the port, edit that file (Docker/AWS override `HOST`/`PORT`).
 
-Server chỉ lắng nghe trên loopback của máy (localhost), máy khác trong mạng không gọi được.
-Host, cổng, URL công khai và origin CORS nằm ở **một chỗ duy nhất**: khối `address` trong
-[`src/common/config.ts`](src/common/config.ts). `main.ts`, `healthcheck.ts`, Docker health check
-và lệnh `npm run health` đều lấy địa chỉ từ đó.
+The debug app calls `http://127.0.0.1:3100/v1/`; run `adb reverse tcp:3100 tcp:3100` once per device/emulator
+so that address reaches this PC. Admin dashboard: <http://127.0.0.1:3100/admin/> (demo admin `thao` / `password123`
+after `npm run seed:demo`).
 
-Khi deploy, sửa trong khối `address`:
+Production build: `npm run build && npm start`, or `docker build -t zenzy-api .`.
 
-| Khoá | Đổi thành |
-|---|---|
-| `host` | giao diện mạng cần lắng nghe (hoặc giữ nguyên và đặt `LISTEN_ALL_INTERFACES=true` — image Docker đã đặt sẵn) |
-| `port` | cổng của server thật |
-| `publicUrl` | URL công khai của API, không gồm `/v1` |
-| `corsOrigin` | danh sách origin của web client |
+## Environment variables
 
-Ngoại lệ duy nhất: `docker-compose.yml` (chạy thử container trên máy) ghi cổng ánh xạ
-`127.0.0.1:8787:8080`, vì Docker không đọc được file TypeScript. Đổi `port` thì sửa cả dòng đó.
-
-App (nhóm app phụ trách) chỉ cần trỏ tới `publicUrl` + `/v1`. Mặc định khi chạy localhost:
-`http://127.0.0.1:8787/v1` (emulator/điện thoại Android dùng `adb reverse tcp:8787 tcp:8787`).
-
-## Biến môi trường
-
-| Biến | Ý nghĩa |
-|---|---|
-| `MONGODB_URI` | Chuỗi kết nối MongoDB Atlas |
-| `MONGODB_DB` | Tên database (mặc định `zenzylocaldemo` cho bản localhost; DB `Zenzy` cũ dùng khi deploy) |
-| `JWT_SECRET` | Khoá ký JWT, chuỗi ngẫu nhiên dài |
-| `JWT_EXPIRES_IN` | Thời hạn token (mặc định `30d`) |
-| `SEED_ON_BOOT` | `false` để tắt tự nạp dữ liệu mẫu |
-
-Địa chỉ cũng có thể ghi đè tạm bằng biến môi trường `HOST`, `PORT`, `PUBLIC_URL`, `CORS_ORIGIN`,
-`LISTEN_ALL_INTERFACES` (nền tảng như Docker/AWS tự đặt `PORT`), nhưng giá trị gốc luôn ở `config.ts`.
-
-## API (prefix `/v1`)
-
-Route đọc cho phép khách (không token) và trả về dữ liệu của người dùng mẫu.
-Route ghi cần header `Authorization: Bearer <access_token>`.
-Lỗi luôn có dạng `{ code, message, timestamp }`.
-
-| Method | Đường dẫn | Màn hình dùng | Cần đăng nhập |
+| Variable | Required | Default | Purpose |
 |---|---|---|---|
-| GET | `/health` | health check | |
-| POST | `/auth/register` `{ full_name, email, password, date_of_birth? }` | Register | |
-| POST | `/auth/login` `{ email, password }` | Login | |
-| GET | `/me` | | |
-| GET | `/me/profile` | Social Profile | |
-| GET | `/me/privacy` | Location Privacy | |
-| PUT | `/me/privacy` `{ ghost_mode?, audience?, precise? }` | Location Privacy | ✔ |
-| GET | `/me/shop` | My shop | |
-| GET | `/map/pins?view=main\|flow` | Home Map, bản đồ luồng live pin | |
-| POST | `/pins` `{ type, title, description, audience }` | Create Live Pin | ✔ |
-| GET | `/shops`, `/shops/:id` | Shop & Flash Deals | |
-| POST | `/shops` `{ name, address, opening, closing, menu[] }` | Create shop | ✔ |
-| GET | `/events`, `/events/:id` | Event & RSVP | |
-| POST | `/events/:id/join` | Event & RSVP | ✔ |
-| GET | `/posts` | Newsfeed | |
-| GET | `/conversations`, `/conversations/:id` | Messages, Conversation | |
-| POST | `/conversations/:id/messages` `{ text }` | Conversation | ✔ |
-| GET | `/notifications` | Notifications | |
+| `MONGODB_URI` | yes | local replica set | MongoDB connection string (Atlas `mongodb+srv://…` in production). Must be a replica set. |
+| `MONGODB_DB` | | `zenzy` (`.env.example`: `zenzylocaldemo`) | Database name; the localhost build uses its own DB on the same cluster |
+| `JWT_SECRET` | yes in production | dev fallback | ≥ 32 random characters; the server refuses to start in production without it |
+| `ACCESS_TOKEN_TTL_SECONDS` | | `900` | NFR-08 |
+| `REFRESH_TOKEN_TTL_DAYS` | | `30` | NFR-08 |
+| `BCRYPT_ROUNDS` | | `10` | Password hashing cost |
+| `GOOGLE_CLIENT_IDS` | for Google sign-in | empty | Comma-separated OAuth client IDs accepted as ID-token audience |
+| `CORS_ORIGINS` | | empty | Browser origins (admin dashboard); mobile apps need none |
+| `TRUST_PROXY` | | `0` | `1` behind Caddy so rate limiting sees the client IP |
+| `AWS_REGION`, `S3_BUCKET`, `MEDIA_PUBLIC_BASE_URL` | for uploads | empty | Signed uploads; on EC2 the instance role supplies AWS credentials |
+| `FCM_SERVICE_ACCOUNT_BASE64` | for push | empty | Base64 of the Firebase service-account JSON |
+| `JOBS_ENABLED` | | `true` | Ends past events/deals and expired time-limited sharing every 30 s |
+| `HOST`, `PORT` | | `127.0.0.1`, `3100` from `src/core/address.ts` | Override only for containers/hosting (the Dockerfile sets `0.0.0.0`, `3000`) |
+| `MEDIA_LOCAL_DIR` | | `media-local` outside production | Development uploads stored on disk and served at `/media/` when S3 is not configured |
+| `PUBLIC_BASE_URL` | | from the request | Public origin used in local upload URLs |
 
-Ảnh trong dữ liệu mẫu là tên asset đóng gói sẵn trong app (ví dụ `s08_cafe`); app cũng nhận URL `http(s)`.
+`.env.example` lists them with comments. Real secrets never go in the repository: locally they live in
+`.env` (git-ignored), in production in SSM Parameter Store.
 
-## Triển khai lên AWS (EC2 + Docker + HTTPS)
+## Tests
 
-1. Tạo máy EC2 (Amazon Linux 2023 hoặc Ubuntu, `t3.small` là đủ), Security Group mở cổng 22, 80, 443.
-2. Trỏ bản ghi DNS `A` của tên miền API (ví dụ `api.ten-mien.com`) về IP công khai của máy.
-3. Trong MongoDB Atlas → Network Access, thêm IP công khai của máy EC2.
-4. Trên máy EC2: cài Docker + plugin compose, chép thư mục `zenzy_backend` lên (git clone), tạo file `.env`.
-5. Chạy:
+```bash
+npm test          # 39 end-to-end tests, ~1 minute; first run downloads a MongoDB binary (~100 MB)
+npm run typecheck
+npm run lint
+```
 
-   ```bash
-   DOMAIN=api.ten-mien.com docker compose -f deploy/docker-compose.aws.yml up -d --build
-   ```
+The tests start the real app on a random port against an in-memory MongoDB replica set and cover the
+spec's sequence diagrams (4.6) plus the business rules:
 
-   Caddy tự xin chứng chỉ HTTPS. Kiểm tra: `https://api.ten-mien.com/v1/health`.
-6. Sửa `publicUrl` trong `src/common/config.ts` thành tên miền đó, rồi báo nhóm app URL mới
-   (`https://api.ten-mien.com/v1`).
+| File | Covers |
+|---|---|
+| `map.e2e-spec.ts` | SEQ-01 nearby map, SEQ-02 Ghost Mode (location deleted + `location:hide` over the socket), friends-only and close-friends audience, time-limited sharing, stale-location filter, blocks, 15-min TTL index, one location per user, under-16 consent, radius queries with known points, search by distance |
+| `events.e2e-spec.ts` | SEQ-03 create (validation, 422 banned word saves nothing, idempotency key, 6th active event 409 incl. concurrent creates), SEQ-04 join → host notified by socket, duplicate 409, non-host 403, approve → chat member, FULL at max, leave/kick release seats, cancel, blocked-by-host 403, close-friends visibility, ENDED job |
+| `moderation.e2e-spec.ts` | SEQ-05 one report per user, own content 400, 3rd distinct report hides the post, admin 403 for users, queue order, REMOVE_WARN in one transaction with an audit entry and owner notification, second admin gets 409, DISMISS restores, event auto-hide + REMOVE_SUSPEND blocks login, shop pre-moderation and flash deals |
+| `auth.e2e-spec.ts` | register/login, 5-per-15-min rate limit per account and IP, refresh rotation, Google first sign-in, change password, suspended accounts, account deletion |
+| `social.e2e-spec.ts` | friend requests, direct chat over the socket, idempotent send, blocked messaging, feed paging (20 + cursor), 500-char and 4-photo limits, likes/comments/saves, notification settings, device tokens |
 
-Muốn dùng ECS Fargate / App Runner thay cho EC2: đẩy image `zenzy-api` (từ `Dockerfile`) lên ECR,
-cấu hình cổng container 8080, health check `/v1/health`, và đặt các biến môi trường ở trên
-(nên lưu `MONGODB_URI`, `JWT_SECRET` trong Secrets Manager).
+## Deploy
 
-## Chưa làm (so với Zenzy_Specification)
+Step-by-step guide: **[docs/DEPLOY-AWS.md](docs/DEPLOY-AWS.md)** (EC2 t3.micro + Elastic IP + free
+Let's Encrypt HTTPS via Caddy + ECR + SSM Parameter Store + S3/CloudFront + MongoDB Atlas M0;
+≈ $0/month inside the free tier, ≈ $15/month after). After that, every release is:
 
-Realtime Socket.IO, bạn bè/chặn, báo cáo vi phạm, admin, upload ảnh, refresh token, push notification,
-đăng nhập Google, giới hạn tần suất request. Các thư mục `friendships/`, `reports/` vẫn là khung trống.
+```powershell
+powershell -ExecutionPolicy Bypass -File server\deploy\aws\deploy.ps1
+```
+
+The Android app's base URL is then `https://<your-domain>/v1/` and the Socket.IO URL `https://<your-domain>`.
+
+## Decisions where the spec left room
+
+- **Live pin** = an event created without `start_time` (it starts now and needs an `end_time`).
+- **Active event (BR-02)** = status OPEN or FULL and `end_time` in the future.
+- **FOLLOWING feed** = posts of accepted friends (the data model has no follow relation).
+- **`precise: false`** stores the position rounded to about 1 km instead of the exact point.
+- **Report thresholds (BR-03)** count distinct users with *open* reports; after an admin dismisses,
+  counting starts again. Shops have no HIDDEN status in the ERD, so a `hidden` flag is used; an admin
+  REMOVE on a shop sets it REJECTED with the reason. Reported **user profiles** are never auto-hidden;
+  REMOVE on a profile clears its display name, bio and avatar.
+- **Group chats** (listed in 5.3.8) may only include the creator's friends.
+- **Account deletion** runs immediately inside one transaction, then deletes the S3 objects
+  (well within NFR-10's 72 hours); the endpoint still answers `202` as specified.
+- **Re-joining**: after cancelling or leaving, a user may request again (same document, back to
+  PENDING); after REJECTED or KICKED, no.
+
+## Not implemented, and why
+
+- **Admin dashboard web app** (spec 4.1): a separate client; every admin endpoint it needs exists.
+- **Address/place search** in UC-04: done by the map provider on the client (spec 4.1); `/search` covers shops and events.
+- **DB-level insert-only user for `admin_audit_log`** (marked [verify] in 5.1): the API never updates or
+  deletes it (no route exists); a restricted Atlas database role is a manual Atlas step and Atlas M0 may not
+  support custom roles.
+- **Socket.IO shared adapter** for several instances (4.8 [verify]): not needed for one instance / 50 users.
+- **Load and latency tests** for NFR-01 to NFR-04 and NFR-12, uptime (NFR-11): need the deployed system.
+- **Not exercised against the real services** (no credentials here): Google token verification, FCM push and
+  S3 signed uploads are implemented with the official libraries, but the tests replace Google with a fake and
+  run with push and uploads switched off.
+
+## Open questions
+
+1. **NFR-20 guardian consent**: implemented as a self-declared flag (`PUT /me/guardian-consent`) that unlocks
+   location sharing for users under 16. The spec marks the legal rule as to be verified; a real check of the
+   guardian may be required.
+2. **NFR-10 vs BR-07**: deleting an account removes all personal data, but insert-only audit entries keep the
+   deleted user's ID and the admin's reason. Is that acceptable, or must they be anonymised?
+3. **NFR-16 retention**: the audit log has no expiry (kept ≥ 12 months as required). Should it be deleted after 12 months?
+4. **NFR-08 per-IP limit**: 5 failed logins per IP per 15 minutes can lock out many students sharing one
+   campus or mobile-carrier IP. Implemented as written; consider raising the per-IP limit.
+5. **Event pushes** (`event:created/updated`) go to every connected user allowed to see the event, not only
+   those within 5 km; the app filters by its viewport. A distance filter needs each viewer's position, which
+   users who do not share location never send.
+6. Spec 1.1/3.2 describe a **Flutter** app with **Google Maps**; the actual app is Kotlin/Compose with
+   MapLibre. The API does not depend on either.

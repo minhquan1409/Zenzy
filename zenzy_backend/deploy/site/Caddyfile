@@ -1,0 +1,54 @@
+# Caddy trên EC2 (bản đầy đủ, thay cho Caddyfile cũ chỉ có reverse_proxy).
+#   /v1, /socket.io, /health, /admin, /media  -> API (container api:3000)
+#   /download/                                -> trang tải APK + file zenzy.apk
+#   mọi đường dẫn khác                        -> bản web Flutter (chỉ giao diện điện thoại)
+# File tĩnh nằm ở /opt/zenzy/site trên máy chủ, gắn vào container tại /srv (deploy-site.ps1 cập nhật).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Security headers for every response (the API adds its own through helmet as well).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(self), geolocation=(self), microphone=()"
+		-Server
+	}
+
+	@api path /v1/* /socket.io/* /health /admin /admin/* /media/*
+	handle @api {
+		reverse_proxy api:3000
+	}
+
+	handle /download* {
+		# Chỉ người có mật khẩu mới tải được app (chưa phát hành công khai). API kiểm tra mật khẩu (Basic auth)
+		# và đếm số lần sai theo IP: sai 10 lần trong 24 giờ thì IP bị chặn 24 giờ. Tên đăng nhập và mã băm
+		# mật khẩu nằm trong SSM (DOWNLOAD_USER, DOWNLOAD_PASSWORD_HASH_B64), deploy-site.ps1 ghi vào đó.
+		forward_auth api:3000 {
+			uri /v1/internal/download-auth
+		}
+		root * /srv
+		@apk path *.apk
+		header @apk >Content-Type application/vnd.android.package-archive
+		header @apk Content-Disposition attachment
+		header @apk Cache-Control "no-cache"
+		header /download/ Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		root * /srv/web
+		# Content-Security-Policy for the Flutter web app: only the hosts it really loads from
+		# (CanvasKit, Google sign-in, maplibre, OpenFreeMap tiles, S3 uploads), no framing.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com https://accounts.google.com/gsi/ https://unpkg.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/ https://unpkg.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss://{$DOMAIN} https://www.gstatic.com https://fonts.gstatic.com https://tiles.openfreemap.org https://unpkg.com https://accounts.google.com/gsi/ https://*.amazonaws.com; worker-src 'self' blob: https://unpkg.com; child-src 'self' blob: https://unpkg.com; frame-src https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		# Các file "vỏ" đổi mỗi lần build: luôn hỏi lại máy chủ để người dùng nhận bản mới.
+		@shell path / /index.html /flutter_bootstrap.js /flutter_service_worker.js /version.json /manifest.json
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

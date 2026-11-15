@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zenzy Admin</title>
+  <style>
+    :root { --navy:#1A1B2F; --coral:#FF5C5C; --canvas:#F8F9FC; --purple:#7C66DC; --lavender:#EAE8F8; --secondary:#6B7085; --line:#EBEFF5; --green:#1F9D55; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--canvas); color: var(--navy); }
+    header { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; background:var(--navy); color:#fff; }
+    header h1 { font-size:18px; margin:0; display:flex; gap:10px; align-items:center; }
+    header .dot { width:12px; height:12px; border-radius:50%; background:var(--coral); }
+    nav { display:flex; gap:4px; padding:0 24px; background:#fff; border-bottom:1px solid var(--line); }
+    nav button { border:0; background:none; padding:14px 14px 11px; font:600 14px inherit; color:var(--secondary); border-bottom:3px solid transparent; cursor:pointer; }
+    nav button.active { color:var(--navy); border-bottom-color:var(--coral); }
+    main { max-width:1100px; margin:0 auto; padding:24px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .grow { flex:1; min-width:200px; }
+    .muted { color:var(--secondary); font-size:13px; }
+    .pill { display:inline-block; padding:3px 10px; border-radius:100px; font-size:12px; font-weight:600; background:var(--lavender); color:var(--purple); }
+    .pill.red { background:#FFECEC; color:var(--coral); }
+    .pill.green { background:#E4F1EA; color:var(--green); }
+    button.btn, a.btn { border:0; border-radius:12px; padding:9px 14px; font:600 13px inherit; cursor:pointer; background:var(--lavender); color:var(--navy); }
+    button.btn.primary { background:var(--coral); color:#fff; }
+    button.btn.ghost { background:#fff; border:1px solid var(--line); }
+    button.btn:disabled { opacity:.5; cursor:default; }
+    input, select, textarea { font:14px inherit; padding:10px 12px; border:1px solid var(--lavender); border-radius:12px; background:#fff; color:var(--navy); }
+    textarea { width:100%; min-height:60px; }
+    .login { max-width:360px; margin:80px auto; }
+    .login input { width:100%; margin-bottom:10px; }
+    .error { color:var(--coral); font-size:13px; margin-top:8px; }
+    .target { background:var(--canvas); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:14px; white-space:pre-wrap; word-break:break-word; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .empty { text-align:center; padding:40px; color:var(--secondary); }
+    table { width:100%; border-collapse:collapse; }
+    td, th { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:top; }
+    th { font-size:12px; color:var(--secondary); text-transform:uppercase; letter-spacing:.5px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span class="dot"></span>Zenzy Admin</h1>
+    <div class="row"><span id="who" class="muted" style="color:#c9cbe0"></span><button id="logout" class="btn ghost" hidden>Log out</button></div>
+  </header>
+  <nav id="tabs" hidden>
+    <button data-tab="reports" class="active">Report queue</button>
+    <button data-tab="shops">Shop approval</button>
+    <button data-tab="users">Accounts</button>
+  </nav>
+  <main id="app"></main>
+  <script src="app.js"></script>
+</body>
+</html>

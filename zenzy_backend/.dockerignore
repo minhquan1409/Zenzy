@@ -1,7 +1,10 @@
 node_modules
 dist
+coverage
+test
+docs
+deploy
+ci
 .env
 .env.*
-!.env.example
-npm-debug.log
-.git
+*.log

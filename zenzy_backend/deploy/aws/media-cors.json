@@ -1,0 +1,10 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["https://zenzy.dpdns.org"],
+      "AllowedMethods": ["GET", "POST"],
+      "AllowedHeaders": ["*"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+}

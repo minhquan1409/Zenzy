@@ -1,28 +1,64 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
-import { JwtAuthGuard, userIdOf } from '../common/auth.js';
-import { ChatService } from './chat.service.js';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { z } from 'zod';
+import { CurrentUser, oid, parse, zDate, zId } from '../common/http';
+import { IdempotencyService } from '../core/support.services';
+import { UserDoc } from '../core/types';
+import { ChatService } from './chat.service';
 
 @Controller('conversations')
 export class ChatController {
-  constructor(private readonly chat: ChatService) {}
+  constructor(
+    private readonly chat: ChatService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
 
-  /** GET /v1/conversations — dữ liệu màn Messages. */
   @Get()
-  list() {
-    return this.chat.conversations();
+  list(@CurrentUser() user: UserDoc, @Query() query: unknown) {
+    const dto = parse(z.object({ type: z.enum(['DIRECT', 'GROUP', 'EVENT']).optional() }), query);
+    return this.chat.list(user, dto.type);
   }
 
-  /** GET /v1/conversations/:id — dữ liệu màn Conversation. */
-  @Get(':id')
-  get(@Param('id') id: string, @Req() req: Request) {
-    return this.chat.conversation(id, userIdOf(req));
+  @Post()
+  create(@CurrentUser() user: UserDoc, @Body() body: unknown) {
+    const dto = parse(
+      z.object({
+        type: z.enum(['DIRECT', 'GROUP']),
+        member_ids: z.array(zId).min(1).max(50),
+        name: z.string().trim().min(1).max(60).optional(),
+      }),
+      body,
+    );
+    return this.chat.create(user, dto.type, dto.member_ids, dto.name ?? null);
   }
 
-  /** POST /v1/conversations/:id/messages { text } */
+  @Get(':id/messages')
+  messages(@CurrentUser() user: UserDoc, @Param('id') id: string, @Query() query: unknown) {
+    const dto = parse(z.object({ limit: z.coerce.number().int().min(1).max(100).default(30), before: zDate.optional() }), query);
+    return this.chat.messages(user, oid(id), dto.limit, dto.before);
+  }
+
   @Post(':id/messages')
-  @UseGuards(JwtAuthGuard)
-  send(@Param('id') id: string, @Req() req: Request, @Body() body: any) {
-    return this.chat.send(id, userIdOf(req)!, body);
+  send(@CurrentUser() user: UserDoc, @Param('id') id: string, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
+    const dto = parse(z.object({ content: z.string().trim().min(1).max(2000) }), body);
+    const convId = oid(id);
+    return this.idempotency.run(user._id, `POST /conversations/${id}/messages`, key, () => this.chat.send(user, convId, dto.content));
+  }
+
+  @Post(':id/read')
+  @HttpCode(204)
+  async read(@CurrentUser() user: UserDoc, @Param('id') id: string): Promise<void> {
+    await this.chat.markRead(user, oid(id));
+  }
+
+  @Patch(':id')
+  mute(@CurrentUser() user: UserDoc, @Param('id') id: string, @Body() body: unknown) {
+    const dto = parse(z.object({ muted: z.boolean() }), body);
+    return this.chat.setMuted(user, oid(id), dto.muted);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async hide(@CurrentUser() user: UserDoc, @Param('id') id: string): Promise<void> {
+    await this.chat.hide(user, oid(id));
   }
 }

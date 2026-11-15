@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tải Zenzy</title>
+  <meta name="description" content="Tải ứng dụng Zenzy cho Android hoặc dùng bản web trên iPhone.">
+  <meta name="theme-color" content="#FF5C5C">
+  <link rel="icon" href="/favicon.png">
+  <style>
+    :root { --coral:#FF5C5C; --navy:#1C2340; --muted:#5E6478; --line:#E6E8EE; --bg:#F6F7FA; --card:#FFFFFF; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--navy); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    main { max-width:440px; margin:0 auto; padding:32px 16px 48px; }
+    .logo { width:72px; height:72px; border-radius:20px; display:block; margin:0 auto 12px; }
+    h1 { font-size:28px; text-align:center; margin:0 0 4px; }
+    .tag { text-align:center; color:var(--muted); margin:0 0 24px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:20px; margin-bottom:16px; }
+    h2 { font-size:18px; margin:0 0 4px; }
+    .meta { color:var(--muted); font-size:14px; margin:0 0 14px; }
+    .btn { display:block; text-align:center; text-decoration:none; font-weight:600; padding:14px; border-radius:999px; }
+    .primary { background:var(--coral); color:#fff; }
+    .ghost { border:1.5px solid var(--navy); color:var(--navy); }
+    .alt { text-align:center; font-size:13px; color:var(--muted); margin:10px 0 0; }
+    .alt a { color:var(--coral); }
+    ol { padding-left:20px; margin:14px 0 0; color:var(--muted); font-size:14px; }
+    li { margin-bottom:6px; }
+    b { color:var(--navy); }
+    footer { text-align:center; color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+<main>
+  <img class="logo" src="/icons/Icon-192.png" alt="">
+  <h1>Zenzy</h1>
+  <p class="tag">Bản đồ bạn bè, sự kiện và ưu đãi quanh bạn</p>
+
+  <section class="card">
+    <h2>Android</h2>
+    <p class="meta">Phiên bản __VERSION__ · __SIZE__ MB · cập nhật __DATE__</p>
+    <a class="btn primary" href="/download/zenzy.apk" download>Tải APK</a>
+    <p class="alt">Máy cũ (Android 32-bit) không cài được? <a href="/download/zenzy-armv7.apk" download>Tải bản 32-bit (__SIZE32__ MB)</a></p>
+    <ol>
+      <li>Chrome có thể báo <b>"Tệp này có thể gây hại"</b>: chọn <b>Vẫn tải xuống</b>. Ứng dụng chưa phát hành trên Google Play nên trình duyệt luôn cảnh báo với file APK.</li>
+      <li>Mở file vừa tải. Lần đầu, Android hỏi quyền <b>Cài ứng dụng không rõ nguồn gốc</b>: bật cho trình duyệt rồi quay lại.</li>
+      <li>Nếu Play Protect hiện <b>"Ứng dụng chưa được xác minh"</b>, chọn <b>Chi tiết → Vẫn cài đặt</b>.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>iPhone và máy tính</h2>
+    <p class="meta">Dùng ngay trên trình duyệt, không cần cài.</p>
+    <a class="btn ghost" href="/">Mở bản web</a>
+    <ol>
+      <li>Trên iPhone, mở bằng <b>Safari</b> → nút Chia sẻ → <b>Thêm vào MH chính</b> để có biểu tượng như app.</li>
+      <li>Cho phép <b>truy cập vị trí</b> khi được hỏi để thấy bạn bè quanh bạn.</li>
+    </ol>
+  </section>
+
+  <footer>Bản thử nghiệm (demo).</footer>
+</main>
+</body>
+</html>

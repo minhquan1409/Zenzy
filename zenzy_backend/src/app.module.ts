@@ -1,38 +1,94 @@
-import { Controller, Get, Module, ServiceUnavailableException } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module.js';
-import { ChatModule } from './chat/chat.module.js';
-import { DatabaseModule, DatabaseService } from './common/database.js';
-import { EventsModule } from './events/events.module.js';
-import { LocationsModule } from './locations/locations.module.js';
-import { NotificationsModule } from './notifications/notifications.controller.js';
-import { PostsModule } from './posts/posts.module.js';
-import { ShopsModule } from './shops/shops.module.js';
-import { UsersModule } from './users/users.module.js';
+import { Controller, Get, Module } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { AuthController } from './auth/auth.controller';
+import { AuthService, GoogleVerifier } from './auth/auth.service';
+import { SecurityController } from './auth/security.controller';
+import { SecurityService } from './auth/security.service';
+import { ChatController } from './chat/chat.controller';
+import { ChatService } from './chat/chat.service';
+import { AllExceptionsFilter, AuthGuard, Public } from './common/http';
+import { AbuseService, RateLimitGuard } from './core/abuse.service';
+import { AccessService } from './core/access.service';
+import { AppConfig } from './core/config';
+import { Db } from './core/db';
+import { JobsService } from './core/jobs.service';
+import { MailService } from './core/mail.service';
+import { MediaService } from './core/media.service';
+import { RealtimeGateway } from './core/realtime.gateway';
+import { IdempotencyService, NotificationsService, PushService, TextModeration } from './core/support.services';
+import { EventsController, MyEventsController } from './events/events.controller';
+import { EventsService } from './events/events.service';
+import { FriendsController } from './friends/friends.controller';
+import { FriendsService } from './friends/friends.service';
+import { LocationController } from './location/location.controller';
+import { LocationService } from './location/location.service';
+import { AdminController, ReportsController } from './moderation/moderation.controller';
+import { ModerationService } from './moderation/moderation.service';
+import { NotificationsController } from './notifications/notifications.controller';
+import { PostsController } from './posts/posts.controller';
+import { PostsService } from './posts/posts.service';
+import { ShopsController } from './shops/shops.controller';
+import { ShopsService } from './shops/shops.service';
+import { UsersController } from './users/users.controller';
+import { UsersService } from './users/users.service';
 
-@Controller('health')
-class HealthController {
-  constructor(private readonly db: DatabaseService) {}
+@Controller()
+export class HealthController {
+  constructor(private readonly db: Db) {}
 
-  /** GET /v1/health — dùng cho health check của load balancer / container. */
-  @Get()
+  /** Used by the load balancer / uptime monitor (NFR-11). */
+  @Public()
+  @Get('health')
   async health() {
-    if (!(await this.db.ping())) throw new ServiceUnavailableException('Mất kết nối MongoDB');
+    await this.db.db.command({ ping: 1 });
     return { status: 'ok', time: new Date().toISOString() };
   }
 }
 
 @Module({
-  imports: [
-    DatabaseModule,
-    AuthModule,
-    UsersModule,
-    LocationsModule,
-    ShopsModule,
-    EventsModule,
-    PostsModule,
-    ChatModule,
-    NotificationsModule,
+  controllers: [
+    HealthController,
+    AuthController,
+    SecurityController,
+    UsersController,
+    LocationController,
+    FriendsController,
+    MyEventsController,
+    EventsController,
+    ShopsController,
+    PostsController,
+    ChatController,
+    NotificationsController,
+    ReportsController,
+    AdminController,
   ],
-  controllers: [HealthController],
+  providers: [
+    AppConfig,
+    Db,
+    AccessService,
+    AbuseService,
+    RealtimeGateway,
+    TextModeration,
+    IdempotencyService,
+    PushService,
+    NotificationsService,
+    MediaService,
+    MailService,
+    GoogleVerifier,
+    AuthService,
+    SecurityService,
+    UsersService,
+    LocationService,
+    FriendsService,
+    EventsService,
+    ShopsService,
+    PostsService,
+    ChatService,
+    ModerationService,
+    JobsService,
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+  ],
 })
 export class AppModule {}

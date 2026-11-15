@@ -1,0 +1,1932 @@
+openapi: 3.0.3
+info:
+  title: Zenzy API
+  version: 1.0.0
+  description: |
+    REST API of the Zenzy server (NestJS + MongoDB + Socket.IO). Every client (Android, iOS, web) uses
+    these same routes.
+
+    **Conventions**
+
+    - JSON in and out, `snake_case` fields, times in UTC ISO-8601 (`2026-11-07T10:30:00.000Z`);
+      `date_of_birth` is `YYYY-MM-DD`. IDs are 24-character hex strings.
+    - Send `Authorization: Bearer <access_token>` on every route that is not marked public.
+      Access tokens live 15 minutes. On `401` call `POST /auth/refresh` once, store the new pair, retry.
+      A refresh token works exactly once.
+    - Optional `Idempotency-Key: <uuid>` header on `POST /events`, `POST /events/{event_id}/requests`,
+      `POST /posts`, `POST /conversations/{id}/messages`, `POST /reports`: a retry with the same key
+      returns the first response and never creates a duplicate.
+    - Errors always look like `{ "code": "EVENT_LIMIT", "message": "…", "timestamp": "…" }`. Show the
+      user a text chosen by `code`; `message` is English and meant for developers.
+    - Lists are `{ "items": [...], "next_cursor": "…" | null }`; pass `?cursor=<next_cursor>` for the
+      next page (20 items).
+    - Coordinates are `latitude` / `longitude` in degrees. Radii are in metres.
+
+    **Limits (all answer `429` with `retry_after` seconds and a `Retry-After` header)**
+
+    - `RATE_LIMITED`: every signed-in user 600 requests / minute; per route (account / IP):
+      `GET /users` 30 / 100 an hour, `GET /users/{user_id}` 300 / 600 an hour, `GET /posts` 120 / 300 a
+      minute, `GET /map/nearby` and `GET /events` 60 / 150 a minute, `GET /search` 30 / 100 a minute.
+    - `BROWSING_PAUSED`: the account opened more than 60 profiles of non-friends within an hour; search,
+      profiles, feed and map are refused for 60 minutes.
+    - `LOCATION_JUMP`: the centre of `GET /map/nearby`, `GET /events` or the `NEARBY` feed moved more
+      than 50 km within 10 minutes more than 5 times in an hour.
+
+    **Real-time channel (Socket.IO)**
+
+    Connect to the host root (not `/v1`), path `/socket.io/`, with `auth: { token: <access_token> }`.
+    The client sends nothing over the socket; all writes go through REST. Server events:
+
+    | Event | Payload |
+    |---|---|
+    | `connection:ready` | `{ user_id }` |
+    | `connection:error` | `{ code, message }`, then the server disconnects (refresh the token and reconnect) |
+    | `location:update` | `{ user_id, latitude, longitude, accuracy, updated_at }` |
+    | `location:hide` | `{ user_id }` (remove the friend's marker) |
+    | `event:created`, `event:updated` | `EventSummary`; after moderation `{ id, status: "HIDDEN" \| "REMOVED" }` |
+    | `chat:message` | `{ conversation_id, message: Message }` |
+    | `notification:new` | `Notification` |
+
+    **Image upload flow**
+
+    Compress the image to 500 KB or less, call `POST /uploads/sign`, send a `multipart/form-data` POST to
+    `upload_url` with every entry of `fields` first and the file last (form field `file`), then use
+    `public_url` in `PATCH /me`, `POST /posts` or a shop.
+servers:
+  - url: https://zenzy.dpdns.org/v1
+    description: Production
+  - url: http://localhost:3100/v1
+    description: Local development (npm run server)
+tags:
+  - name: Auth
+    description: Sign-up with e-mail code, sign-in, tokens, password reset
+  - name: Account
+    description: The signed-in user's own profile and account
+  - name: Users
+  - name: Privacy and location
+  - name: Map and search
+  - name: Friends and blocking
+  - name: Events
+  - name: Shops and deals
+  - name: Feed
+  - name: Uploads
+  - name: Chat
+  - name: Notifications
+  - name: Reports
+  - name: Admin
+    description: Needs an ADMIN account (sign in with `POST /admin/login`)
+  - name: System
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Sign-up step 1 - send the e-mail code
+      description: >
+        Validates the data and e-mails a 6-digit code (valid 15 minutes). No account exists until
+        `POST /auth/register/verify`. Registering again with the same e-mail replaces the pending sign-up.
+        At most 5 sign-ups per IP every 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, date_of_birth, email]
+              properties:
+                username: { $ref: '#/components/schemas/Username' }
+                password: { type: string, minLength: 8, maxLength: 128 }
+                date_of_birth: { type: string, format: date, example: '2005-03-02' }
+                email: { type: string, format: email }
+      responses:
+        '202': { $ref: '#/components/responses/SignupCodeSent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { description: '`USERNAME_TAKEN` or `EMAIL_TAKEN`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/TooMany' }
+        '503': { description: '`MAIL_NOT_CONFIGURED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /auth/register/verify:
+    post:
+      tags: [Auth]
+      summary: Sign-up step 2 - confirm the code, create the account and sign in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, pattern: '^[0-9]{6}$', example: '482913' }
+      responses:
+        '201': { $ref: '#/components/responses/Session' }
+        '400': { description: '`INVALID_VERIFICATION_CODE` (wrong or expired) or `SIGNUP_EXPIRED` (5th wrong code: sign up again)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`USERNAME_TAKEN` / `EMAIL_TAKEN` (taken since step 1)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /auth/register/resend:
+    post:
+      tags: [Auth]
+      summary: Send a new sign-up code
+      description: Same answer whether or not a sign-up is pending. 3 per address and 10 per IP every 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '202': { $ref: '#/components/responses/SignupCodeSent' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with username and password
+      description: >
+        Wrong passwords in a row lock the account: 5 = 1 minute, 10 = 5 minutes, 15 = 10 minutes
+        (`429 ACCOUNT_LOCKED` with `retry_after`), 20 = `403 PASSWORD_RESET_REQUIRED` until the password is
+        reset. Admin accounts are refused here and use `POST /admin/login`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '401': { description: '`INVALID_CREDENTIALS`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: '`ACCOUNT_SUSPENDED` (message has the reason) or `PASSWORD_RESET_REQUIRED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: '`ACCOUNT_LOCKED` (with `retry_after`) or `TOO_MANY_ATTEMPTS` (30 failures / 15 min per IP)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Sign in or sign up with a Google ID token
+      description: The first time, `400 PROFILE_REQUIRED` asks for `username` and `date_of_birth`; send the same token again with them.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token: { type: string }
+                username: { $ref: '#/components/schemas/Username' }
+                date_of_birth: { type: string, format: date }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { description: '`PROFILE_REQUIRED` or `INVALID_INPUT`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { description: '`INVALID_GOOGLE_TOKEN`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: '`ACCOUNT_SUSPENDED` or `ADMIN_WEB_ONLY`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`USERNAME_TAKEN`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /auth/password/forgot:
+    post:
+      tags: [Auth]
+      summary: E-mail a password-reset code
+      description: The answer is the same whether or not the account exists or has an e-mail. 10 requests per IP every 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login]
+              properties:
+                login: { type: string, description: Username or e-mail }
+      responses:
+        '200':
+          description: Code sent (if the account exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: boolean, example: true }
+                  expires_in: { type: integer, description: Seconds, example: 600 }
+                  dev_code: { type: string, description: Only in development without SMTP }
+        '429': { $ref: '#/components/responses/TooMany' }
+        '503': { description: '`MAIL_NOT_CONFIGURED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: Set a new password with the e-mailed code
+      description: Signs out every session and clears the login lock.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, code, new_password]
+              properties:
+                login: { type: string }
+                code: { type: string, pattern: '^[0-9]{6}$' }
+                new_password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '204': { description: Password changed }
+        '400': { description: '`INVALID_RESET_CODE` (5 tries per code)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new token pair
+      description: >
+        Each refresh token works once. A token used again more than 10 seconds later is treated as stolen:
+        every token of that sign-in is revoked (`REFRESH_TOKEN_REUSED`) and the user must log in again.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshBody' }
+      responses:
+        '200': { description: New tokens, content: { application/json: { schema: { $ref: '#/components/schemas/Tokens' } } } }
+        '401': { description: '`INVALID_REFRESH_TOKEN` or `REFRESH_TOKEN_REUSED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: End this sign-in (all of its tokens)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshBody' }
+      responses:
+        '204': { description: Signed out }
+
+  /me:
+    get:
+      tags: [Account]
+      summary: Own profile, privacy and notification settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    allOf:
+                      - $ref: '#/components/schemas/Me'
+                      - $ref: '#/components/schemas/UserStats'
+                  privacy: { $ref: '#/components/schemas/Privacy' }
+                  notification_settings: { $ref: '#/components/schemas/NotificationSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Account]
+      summary: Update own profile
+      description: Changing `email` also needs `current_password` (or a fresh Google `id_token` for Google-only accounts).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: { type: string, minLength: 1, maxLength: 50 }
+                avatar_url: { type: string, format: uri, nullable: true, description: A `public_url` from `/uploads/sign` }
+                bio: { type: string, maxLength: 200 }
+                email: { type: string, format: email, nullable: true }
+                current_password: { type: string }
+                id_token: { type: string }
+      responses:
+        '200': { description: Updated profile, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '400': { description: '`INVALID_INPUT` or `INVALID_MEDIA_URL`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: '`REAUTH_REQUIRED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`EMAIL_TAKEN`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    delete:
+      tags: [Account]
+      summary: Delete the account and all of its data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password: { type: string }
+                id_token: { type: string, description: For Google-only accounts }
+      responses:
+        '202':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: DELETION_ACCEPTED }
+        '403': { description: '`REAUTH_FAILED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /me/password:
+    put:
+      tags: [Account]
+      summary: Change the password
+      description: Every other session is signed out. Hide this option when `has_password` is false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string }
+                new_password: { type: string, minLength: 8, maxLength: 128 }
+                refresh_token: { type: string, description: This session's refresh token, so it stays signed in }
+      responses:
+        '204': { description: Changed }
+        '400': { description: '`WRONG_PASSWORD`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`NO_PASSWORD` (Google-only account)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /me/guardian-consent:
+    put:
+      tags: [Account]
+      summary: Record guardian consent (users under 16)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guardian_consent: { type: boolean }
+  /me/events:
+    get:
+      tags: [Events]
+      summary: Events I host and events I joined
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hosted:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/EventSummary'
+                        - type: object
+                          properties:
+                            pending_requests: { type: integer }
+                  joined:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/EventSummary'
+                        - type: object
+                          properties:
+                            my_status: { $ref: '#/components/schemas/ParticipantStatus' }
+  /me/shops:
+    get:
+      tags: [Shops and deals]
+      summary: My shops (any status, with the reject reason)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ShopDetail' } }
+  /me/saved-posts:
+    get:
+      tags: [Feed]
+      summary: Posts I saved
+      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200': { $ref: '#/components/responses/PostPage' }
+  /me/privacy:
+    get:
+      tags: [Privacy and location]
+      summary: Location and search privacy settings
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Privacy' } } } }
+    put:
+      tags: [Privacy and location]
+      summary: Change privacy settings
+      description: Turning Ghost Mode on or sharing off deletes the stored location and tells friends to remove the marker.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ghost_mode: { type: boolean }
+                sharing_enabled: { type: boolean }
+                audience: { type: string, enum: [FRIENDS, CLOSE_FRIENDS] }
+                share_until: { type: string, format: date-time, nullable: true, description: 'Future time, or null = until turned off' }
+                precise: { type: boolean, description: 'false = position rounded to about 1 km' }
+                hidden_from: { type: array, maxItems: 500, items: { $ref: '#/components/schemas/Id' } }
+                discoverable: { type: boolean, description: 'false = only an exact username finds you in user search' }
+      responses:
+        '200': { description: New settings, content: { application/json: { schema: { $ref: '#/components/schemas/Privacy' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: '`GUARDIAN_CONSENT_REQUIRED` (under 16)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /me/location:
+    put:
+      tags: [Privacy and location]
+      summary: Send the current position
+      description: >
+        Overwrites the single stored position (it expires after 15 minutes). Send every 15 s while moving
+        and every 2 min when still, only while `sharing_enabled` is true and `ghost_mode` is false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude]
+              properties:
+                latitude: { $ref: '#/components/schemas/Latitude' }
+                longitude: { $ref: '#/components/schemas/Longitude' }
+                accuracy: { type: number, nullable: true, description: Metres }
+      responses:
+        '204': { description: Stored }
+        '409': { description: '`SHARING_OFF` (stop sending)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /me/notification-settings:
+    get:
+      tags: [Notifications]
+      summary: Which notification types send a push
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationSettings' } } } }
+    put:
+      tags: [Notifications]
+      summary: Turn notification types on or off
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationSettings' }
+      responses:
+        '200': { description: Full map, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationSettings' } } } }
+  /me/device-tokens:
+    put:
+      tags: [Notifications]
+      summary: Register a push (FCM) token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, platform]
+              properties:
+                token: { type: string, minLength: 10 }
+                platform: { type: string, enum: [ANDROID, IOS] }
+      responses:
+        '204': { description: Saved }
+    delete:
+      tags: [Notifications]
+      summary: Remove a push token (call at logout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '204': { description: Removed }
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Search users by username prefix
+      description: >
+        At least 3 characters, at most 10 results, blocked users excluded. Users who turned `discoverable`
+        off appear only for their exact username. 30 searches an hour per account.
+      parameters:
+        - { name: username, in: query, required: true, schema: { type: string, minLength: 3, maxLength: 30 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PublicUser' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /users/{user_id}:
+    get:
+      tags: [Users]
+      summary: A user's public profile
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /map/nearby:
+    get:
+      tags: [Map and search]
+      summary: Friends, events and shops around a point (one call for the map)
+      parameters:
+        - { $ref: '#/components/parameters/LatitudeQ' }
+        - { $ref: '#/components/parameters/LongitudeQ' }
+        - { $ref: '#/components/parameters/RadiusQ' }
+        - { name: types, in: query, schema: { type: string, example: 'friends,events,shops' }, description: Comma-separated; default all }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user: { $ref: '#/components/schemas/PublicUser' }
+                        latitude: { type: number }
+                        longitude: { type: number }
+                        accuracy: { type: number, nullable: true }
+                        updated_at: { type: string, format: date-time }
+                  events: { type: array, items: { $ref: '#/components/schemas/EventSummary' } }
+                  shops: { type: array, items: { $ref: '#/components/schemas/ShopSummary' } }
+                  server_time: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /search:
+    get:
+      tags: [Map and search]
+      summary: Keyword search over shops and events
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: type, in: query, schema: { type: string, enum: [SHOP, EVENT] } }
+        - { name: latitude, in: query, schema: { $ref: '#/components/schemas/Latitude' }, description: With longitude, sorts by distance }
+        - { name: longitude, in: query, schema: { $ref: '#/components/schemas/Longitude' } }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: >
+            Each item is a ShopSummary or EventSummary plus `distance_m`. `type` is `SHOP` for a shop; for an
+            event it is the event's own type (`EVENT`, `SPORTS`, `STUDY`, `OTHER`), so treat every value other
+            than `SHOP` as an event.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        type: { type: string, enum: [SHOP, EVENT, SPORTS, STUDY, OTHER] }
+                        distance_m: { type: integer, nullable: true }
+                  next_cursor: { type: string, nullable: true }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  /friends:
+    get:
+      tags: [Friends and blocking]
+      summary: Friends, or pending requests
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [ACCEPTED, PENDING], default: ACCEPTED } }
+        - { name: q, in: query, schema: { type: string, maxLength: 50 }, description: Filter by name }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        request_id: { $ref: '#/components/schemas/Id' }
+                        user: { $ref: '#/components/schemas/PublicUser' }
+                        status: { type: string, enum: [ACCEPTED, PENDING] }
+                        direction: { type: string, enum: [INCOMING, OUTGOING], nullable: true }
+                        close_friend: { type: boolean }
+                        created_at: { type: string, format: date-time }
+  /friends/requests:
+    post:
+      tags: [Friends and blocking]
+      summary: Send a friend request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiver_id]
+              properties:
+                receiver_id: { $ref: '#/components/schemas/Id' }
+      responses:
+        '201':
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, example: PENDING }
+                  user: { $ref: '#/components/schemas/PublicUser' }
+        '403': { description: '`BLOCKED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: '`DUPLICATE_REQUEST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /friends/requests/{request_id}:
+    patch:
+      tags: [Friends and blocking]
+      summary: Accept or reject a friend request (recipient only)
+      parameters: [{ name: request_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [ACCEPT, REJECT] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, enum: [ACCEPTED, REJECTED] }
+        '403': { description: '`NOT_RECIPIENT`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`ALREADY_ANSWERED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /friends/{user_id}:
+    delete:
+      tags: [Friends and blocking]
+      summary: Unfriend, or withdraw a pending request
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses:
+        '204': { description: Done }
+  /friends/{user_id}/close:
+    put:
+      tags: [Friends and blocking]
+      summary: Mark a friend as close friend (or not)
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [close]
+              properties:
+                close: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id: { $ref: '#/components/schemas/Id' }
+                  close_friend: { type: boolean }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /blocks:
+    get:
+      tags: [Friends and blocking]
+      summary: Users I blocked
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user: { $ref: '#/components/schemas/PublicUser' }
+                        blocked_at: { type: string, format: date-time }
+    post:
+      tags: [Friends and blocking]
+      summary: Block a user (the friendship ends)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { $ref: '#/components/schemas/Id' }
+      responses:
+        '201':
+          description: Blocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id: { $ref: '#/components/schemas/Id' }
+                  blocked: { type: boolean, example: true }
+  /blocks/{user_id}:
+    delete:
+      tags: [Friends and blocking]
+      summary: Unblock (the friendship is not restored)
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses:
+        '204': { description: Done }
+
+  /events:
+    get:
+      tags: [Events]
+      summary: Active events around a point
+      parameters:
+        - { $ref: '#/components/parameters/LatitudeQ' }
+        - { $ref: '#/components/parameters/LongitudeQ' }
+        - { $ref: '#/components/parameters/RadiusQ' }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/EventType' } }
+        - { name: when, in: query, schema: { type: string, enum: [NOW, SCHEDULED] } }
+      responses:
+        '200':
+          description: OPEN / FULL events that have not ended and that you may see
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/EventSummary' } }
+        '429': { $ref: '#/components/responses/TooMany' }
+    post:
+      tags: [Events]
+      summary: Create an event (omit start_time for a live pin starting now)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/EventInput'
+                - type: object
+                  required: [title, type, latitude, longitude, end_time]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EventSummary'
+                  - type: object
+                    properties:
+                      conversation_id: { $ref: '#/components/schemas/Id' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { description: '`EVENT_LIMIT` (5 active events)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+  /events/{event_id}:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      tags: [Events]
+      summary: Event detail
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/EventDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Events]
+      summary: Edit an event (host only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventInput' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/EventSummary' } } } }
+        '403': { description: '`NOT_HOST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`EVENT_NOT_ACTIVE` or `MAX_BELOW_APPROVED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+  /events/{event_id}/cancel:
+    post:
+      tags: [Events]
+      summary: Cancel an event (host only; members are notified)
+      parameters: [{ $ref: '#/components/parameters/EventId' }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        '200': { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/EventSummary' } } } }
+        '403': { description: '`NOT_HOST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`EVENT_NOT_ACTIVE`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /events/{event_id}/participants:
+    get:
+      tags: [Events]
+      summary: Participants (non-hosts see APPROVED only)
+      parameters:
+        - { $ref: '#/components/parameters/EventId' }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ParticipantStatus' }, description: Host only }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        request_id: { $ref: '#/components/schemas/Id' }
+                        user: { $ref: '#/components/schemas/PublicUser' }
+                        status: { $ref: '#/components/schemas/ParticipantStatus' }
+                        requested_at: { type: string, format: date-time }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /events/{event_id}/requests:
+    post:
+      tags: [Events]
+      summary: Ask to join an event (the host is notified)
+      description: A new request is allowed after cancelling or leaving, but not after being rejected or removed.
+      parameters:
+        - { $ref: '#/components/parameters/EventId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Requested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id: { $ref: '#/components/schemas/Id' }
+                  event_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, example: PENDING }
+        '400': { description: '`OWN_EVENT`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: '`BLOCKED_BY_HOST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`EVENT_FULL`, `DUPLICATE_REQUEST` or `EVENT_ENDED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /events/{event_id}/requests/me:
+    delete:
+      tags: [Events]
+      summary: Cancel my pending request, or leave the event
+      parameters: [{ $ref: '#/components/parameters/EventId' }]
+      responses:
+        '204': { description: Done }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /events/{event_id}/requests/{request_id}:
+    patch:
+      tags: [Events]
+      summary: Approve or reject a join request (host only)
+      parameters:
+        - { $ref: '#/components/parameters/EventId' }
+        - { name: request_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [APPROVED, REJECTED] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, enum: [APPROVED, REJECTED] }
+                  event: { $ref: '#/components/schemas/EventSummary' }
+        '403': { description: '`NOT_HOST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`EVENT_FULL` or `REQUEST_NOT_PENDING`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /events/{event_id}/members/{user_id}:
+    delete:
+      tags: [Events]
+      summary: Remove a member (host only; the seat is released)
+      parameters:
+        - { $ref: '#/components/parameters/EventId' }
+        - { $ref: '#/components/parameters/UserId' }
+      responses:
+        '204': { description: Removed }
+        '403': { description: '`NOT_HOST`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /shops:
+    post:
+      tags: [Shops and deals]
+      summary: Register a shop (starts as PENDING until an admin approves it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ShopInput'
+                - type: object
+                  required: [name, address, latitude, longitude]
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/ShopDetail' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+  /shops/{shop_id}:
+    parameters: [{ $ref: '#/components/parameters/ShopId' }]
+    get:
+      tags: [Shops and deals]
+      summary: Shop detail
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ShopDetail' } } } }
+        '404': { description: Not found (unless APPROVED or yours), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    patch:
+      tags: [Shops and deals]
+      summary: Edit a shop (owner; a REJECTED shop goes back to PENDING)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShopInput' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/ShopDetail' } } } }
+        '403': { description: '`NOT_OWNER`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+  /shops/{shop_id}/deals:
+    parameters: [{ $ref: '#/components/parameters/ShopId' }]
+    get:
+      tags: [Shops and deals]
+      summary: Flash deals of a shop
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, ENDED, CANCELLED], default: ACTIVE } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Deal' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Shops and deals]
+      summary: Create a flash deal (owner of an approved shop)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, discount, end_time]
+              properties:
+                title: { type: string, minLength: 2, maxLength: 80 }
+                discount: { type: string, minLength: 1, maxLength: 40, example: '-20%' }
+                start_time: { type: string, format: date-time, description: Default now }
+                end_time: { type: string, format: date-time }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: '`SHOP_NOT_APPROVED` or `NOT_OWNER`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /shops/{shop_id}/deals/{deal_id}:
+    patch:
+      tags: [Shops and deals]
+      summary: Edit a deal, or end it early with status CANCELLED
+      parameters:
+        - { $ref: '#/components/parameters/ShopId' }
+        - { name: deal_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, minLength: 2, maxLength: 80 }
+                discount: { type: string, minLength: 1, maxLength: 40 }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+                status: { type: string, enum: [CANCELLED] }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
+        '403': { description: '`NOT_OWNER`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: '`DEAL_NOT_ACTIVE`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /posts:
+    get:
+      tags: [Feed]
+      summary: Feed (newest first, 20 per page)
+      description: >
+        A post's `latitude` / `longitude` are exact only for the author and the author's friends; everyone
+        else gets them rounded to 3 decimals (about 100 m).
+      parameters:
+        - { name: feed, in: query, schema: { type: string, enum: [FOR_YOU, FOLLOWING, NEARBY], default: FOR_YOU }, description: 'FOLLOWING = friends; NEARBY needs latitude and longitude (5 km)' }
+        - { name: author_id, in: query, schema: { $ref: '#/components/schemas/Id' }, description: One user's posts }
+        - { name: latitude, in: query, schema: { $ref: '#/components/schemas/Latitude' } }
+        - { name: longitude, in: query, schema: { $ref: '#/components/schemas/Longitude' } }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { $ref: '#/components/responses/PostPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooMany' }
+    post:
+      tags: [Feed]
+      summary: Create a post (text or at least one photo)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string, maxLength: 500 }
+                photo_urls: { type: array, maxItems: 4, items: { type: string, format: uri }, description: '`public_url` values from `/uploads/sign`' }
+                place_name: { type: string, maxLength: 120, nullable: true }
+                latitude: { $ref: '#/components/schemas/Latitude' }
+                longitude: { $ref: '#/components/schemas/Longitude' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+  /posts/{post_id}:
+    parameters: [{ $ref: '#/components/parameters/PostId' }]
+    get:
+      tags: [Feed]
+      summary: One post
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+        '404': { description: Hidden, removed, or the author blocked you, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    patch:
+      tags: [Feed]
+      summary: Edit the text of my post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+        '403': { description: '`NOT_AUTHOR`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+    delete:
+      tags: [Feed]
+      summary: Delete my post
+      responses:
+        '204': { description: Deleted }
+        '403': { description: '`NOT_AUTHOR`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /posts/{post_id}/like:
+    parameters: [{ $ref: '#/components/parameters/PostId' }]
+    put:
+      tags: [Feed]
+      summary: Like a post
+      responses:
+        '204': { description: Liked }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Feed]
+      summary: Remove my like
+      responses:
+        '204': { description: Removed }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /posts/{post_id}/save:
+    parameters: [{ $ref: '#/components/parameters/PostId' }]
+    put:
+      tags: [Feed]
+      summary: Save a post
+      responses:
+        '204': { description: Saved }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Feed]
+      summary: Remove a post from my saved list
+      responses:
+        '204': { description: Removed }
+  /posts/{post_id}/comments:
+    parameters: [{ $ref: '#/components/parameters/PostId' }]
+    get:
+      tags: [Feed]
+      summary: Comments (newest first)
+      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Comment' } }
+                  next_cursor: { type: string, nullable: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Feed]
+      summary: Add a comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+        '422': { $ref: '#/components/responses/BannedKeyword' }
+
+  /uploads/sign:
+    post:
+      tags: [Uploads]
+      summary: Get a ticket to upload one image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, content_type]
+              properties:
+                purpose: { type: string, enum: [AVATAR, POST_PHOTO, SHOP_IMAGE] }
+                content_type: { type: string, enum: [image/jpeg, image/png, image/webp] }
+      responses:
+        '200':
+          description: Upload ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload_url: { type: string, format: uri }
+                  method: { type: string, example: POST }
+                  fields: { type: object, additionalProperties: { type: string }, description: Send every entry as a form field before the file }
+                  public_url: { type: string, format: uri }
+                  max_bytes: { type: integer, example: 512000 }
+                  expires_in: { type: integer, example: 300 }
+        '503': { description: '`UPLOADS_NOT_CONFIGURED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /uploads/local:
+    post:
+      tags: [Uploads]
+      summary: Upload target in local development (no S3)
+      description: Clients never build this call themselves; they post to the `upload_url` returned by `/uploads/sign`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: { type: string }
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '204': { description: Stored }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: Signature wrong or expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /conversations:
+    get:
+      tags: [Chat]
+      summary: My conversations
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [DIRECT, GROUP, EVENT] } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Conversation' } }
+    post:
+      tags: [Chat]
+      summary: Start a direct or group chat with friends
+      description: An existing direct chat is returned again. Event chats are created with the event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, member_ids]
+              properties:
+                type: { type: string, enum: [DIRECT, GROUP] }
+                member_ids: { type: array, items: { $ref: '#/components/schemas/Id' } }
+                name: { type: string, description: Group name }
+      responses:
+        '201': { description: Conversation, content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+        '403': { description: '`NOT_FRIENDS`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /conversations/{id}:
+    parameters: [{ $ref: '#/components/parameters/ConversationId' }]
+    patch:
+      tags: [Chat]
+      summary: Mute or unmute a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [muted]
+              properties:
+                muted: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { $ref: '#/components/schemas/Id' }
+                  muted: { type: boolean }
+        '403': { description: '`NOT_A_MEMBER`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    delete:
+      tags: [Chat]
+      summary: Remove a conversation from my list (until a new message arrives)
+      responses:
+        '204': { description: Hidden }
+  /conversations/{id}/messages:
+    parameters: [{ $ref: '#/components/parameters/ConversationId' }]
+    get:
+      tags: [Chat]
+      summary: Messages, newest first
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: before, in: query, schema: { type: string, format: date-time }, description: Pass `next_before` for older messages }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Message' } }
+                  next_before: { type: string, format: date-time, nullable: true }
+        '403': { description: '`NOT_A_MEMBER`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Chat]
+      summary: Send a message
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '201': { description: Sent, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '403': { description: '`NOT_A_MEMBER` or `BLOCKED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /conversations/{id}/read:
+    post:
+      tags: [Chat]
+      summary: Mark a conversation as read
+      parameters: [{ $ref: '#/components/parameters/ConversationId' }]
+      responses:
+        '204': { description: Done }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: My notifications (newest first)
+      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+                  next_cursor: { type: string, nullable: true }
+                  unread_count: { type: integer }
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark every notification as read
+      responses:
+        '204': { description: Done }
+  /notifications/{id}:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification read or unread
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [read]
+              properties:
+                read: { type: boolean }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports:
+    post:
+      tags: [Reports]
+      summary: Report a post, event, shop or user
+      description: >
+        Posts and events are hidden automatically after 3 different reporters. Shops and users never are:
+        only an admin hides, blocks or bans them.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_type, target_id, reason]
+              properties:
+                target_type: { type: string, enum: [POST, EVENT, SHOP, USER] }
+                target_id: { $ref: '#/components/schemas/Id' }
+                reason: { type: string, enum: [SPAM, SCAM, HARASSMENT, ILLEGAL, SENSITIVE, OTHER] }
+                note: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: You already reported this item (`created` false), content: { application/json: { schema: { $ref: '#/components/schemas/ReportResult' } } } }
+        '201': { description: Report created, content: { application/json: { schema: { $ref: '#/components/schemas/ReportResult' } } } }
+        '400': { description: '`OWN_CONTENT`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/login:
+    post:
+      tags: [Admin]
+      summary: Sign in to the admin web page (ADMIN accounts only)
+      description: >
+        3 wrong tries from one IP in 24 hours block that IP from this route and every `/admin/*` route for
+        24 hours (`403 IP_BLOCKED`) and e-mail the administrator.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '401': { description: '`INVALID_CREDENTIALS` (the message says how many tries are left)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: '`IP_BLOCKED` (with `retry_after`) or `ACCOUNT_SUSPENDED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /admin/reports:
+    get:
+      tags: [Admin]
+      summary: Reported items, most reported first
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, RESOLVED], default: OPEN } }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        report_id: { $ref: '#/components/schemas/Id' }
+                        target_type: { type: string, enum: [POST, EVENT, SHOP, USER] }
+                        target_id: { $ref: '#/components/schemas/Id' }
+                        report_count: { type: integer }
+                        reasons: { type: array, items: { type: string } }
+                        notes: { type: array, items: { type: string } }
+                        first_reported_at: { type: string, format: date-time }
+                        last_reported_at: { type: string, format: date-time }
+                        target: { type: object, nullable: true, additionalProperties: true, description: A short view of the reported item }
+                  next_cursor: { type: string, nullable: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/reports/{report_id}:
+    patch:
+      tags: [Admin]
+      summary: Decide a report (resolves every open report on that item)
+      parameters: [{ name: report_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, reason]
+              properties:
+                action: { type: string, enum: [DISMISS, REMOVE, REMOVE_WARN, REMOVE_SUSPEND] }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, example: RESOLVED }
+                  action: { type: string }
+                  applied: { type: string }
+                  target_type: { type: string }
+                  target_id: { $ref: '#/components/schemas/Id' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '`ALREADY_RESOLVED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /admin/shops:
+    get:
+      tags: [Admin]
+      summary: Shops by review status (oldest first)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, APPROVED, REJECTED], default: PENDING } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ShopDetail' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/shops/{shop_id}:
+    patch:
+      tags: [Admin]
+      summary: Approve or reject a shop
+      parameters: [{ $ref: '#/components/parameters/ShopId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVE, REJECT] }
+                reason: { type: string, description: Required for REJECT }
+      responses:
+        '200':
+          description: Decided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, enum: [APPROVED, REJECTED] }
+                  reviewed_by: { $ref: '#/components/schemas/Id' }
+                  reject_reason: { type: string, nullable: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '`SHOP_NOT_PENDING`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Users, with report counts
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 30 }, description: Username prefix }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/PublicUser'
+                        - type: object
+                          properties:
+                            role: { type: string, enum: [USER, ADMIN] }
+                            status: { type: string, enum: [ACTIVE, SUSPENDED] }
+                            suspend_reason: { type: string, nullable: true }
+                            warnings: { type: integer }
+                            created_at: { type: string, format: date-time }
+                            report_counts:
+                              type: object
+                              properties:
+                                profile: { type: integer }
+                                content: { type: integer }
+                                open: { type: integer }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/users/{user_id}/status:
+    patch:
+      tags: [Admin]
+      summary: Suspend or reactivate a user (suspending signs the user out everywhere)
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              properties:
+                status: { type: string, enum: [SUSPENDED, ACTIVE] }
+                reason: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, enum: [SUSPENDED, ACTIVE] }
+                  reason: { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /internal/download-auth:
+    get:
+      tags: [System]
+      summary: Password check of the APK download page (called by the web server, not by apps)
+      description: >
+        Caddy `forward_auth` target for `/download/`. Uses HTTP Basic credentials. 10 wrong passwords from
+        one IP in 24 hours block that IP for 24 hours.
+      security: [{ basicAuth: [] }]
+      responses:
+        '204': { description: Allowed }
+        '401': { description: Asks for the password (`WWW-Authenticate` header) }
+        '403': { description: This IP is blocked }
+        '503': { description: The download password is not configured }
+  /health:
+    servers:
+      - url: https://zenzy.dpdns.org
+        description: Production (no /v1 prefix)
+      - url: http://localhost:3100
+        description: Local development
+    get:
+      tags: [System]
+      summary: Health check (no /v1 prefix)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  time: { type: string, format: date-time }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: '`access_token` from login, register/verify, Google sign-in or refresh'
+    basicAuth:
+      type: http
+      scheme: basic
+  parameters:
+    Cursor: { name: cursor, in: query, schema: { type: string }, description: '`next_cursor` of the previous page' }
+    IdempotencyKey: { name: Idempotency-Key, in: header, schema: { type: string, format: uuid }, description: Optional; a retry with the same key returns the first response }
+    UserId: { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    EventId: { name: event_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    ShopId: { name: shop_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    PostId: { name: post_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    ConversationId: { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    LatitudeQ: { name: latitude, in: query, required: true, schema: { $ref: '#/components/schemas/Latitude' } }
+    LongitudeQ: { name: longitude, in: query, required: true, schema: { $ref: '#/components/schemas/Longitude' } }
+    RadiusQ: { name: radius, in: query, schema: { type: number, minimum: 1, maximum: 50000, default: 5000 }, description: Metres }
+  responses:
+    BadRequest: { description: '`INVALID_INPUT` (the message lists the fields)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: '`UNAUTHENTICATED`: missing or expired access token (refresh and retry)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: '`FORBIDDEN` (admin role required) or `IP_BLOCKED`', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: '`NOT_FOUND` (also for hidden items and users who blocked you)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    BannedKeyword: { description: '`BANNED_KEYWORD`: the text contains a word that is not allowed', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    TooMany:
+      description: '`TOO_MANY_ATTEMPTS`, `RATE_LIMITED`, `BROWSING_PAUSED` or `LOCATION_JUMP`'
+      headers:
+        Retry-After: { schema: { type: integer }, description: Seconds to wait (when known) }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Session:
+      description: Signed in
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user: { $ref: '#/components/schemas/Me' }
+              tokens: { $ref: '#/components/schemas/Tokens' }
+    SignupCodeSent:
+      description: A 6-digit code was e-mailed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              verification_required: { type: boolean, example: true }
+              email: { type: string, format: email }
+              expires_in: { type: integer, description: Seconds, example: 900 }
+              dev_code: { type: string, description: Only in development without SMTP }
+    PostPage:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              items: { type: array, items: { $ref: '#/components/schemas/Post' } }
+              next_cursor: { type: string, nullable: true }
+  schemas:
+    Id: { type: string, pattern: '^[0-9a-f]{24}$', example: 665f1c2ab7e4a1d2c3f4a5b6 }
+    Username: { type: string, minLength: 3, maxLength: 30, pattern: '^[a-z0-9_.]+$', example: minh_20, description: Stored lower-case }
+    Latitude: { type: number, minimum: -90, maximum: 90, example: 10.7725 }
+    Longitude: { type: number, minimum: -180, maximum: 180, example: 106.698 }
+    EventType: { type: string, enum: [EVENT, SPORTS, STUDY, OTHER] }
+    ParticipantStatus: { type: string, enum: [PENDING, APPROVED, REJECTED, CANCELLED, LEFT, KICKED] }
+    Error:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code: { type: string, example: INVALID_INPUT }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+        retry_after: { type: integer, description: 'Seconds, on 429 / IP_BLOCKED answers' }
+    RefreshBody:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+    Tokens:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in: { type: integer, example: 900 }
+    PublicUser:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        username: { type: string }
+        display_name: { type: string }
+        avatar_url: { type: string, format: uri, nullable: true }
+    UserStats:
+      type: object
+      properties:
+        friends_count: { type: integer }
+        events_joined: { type: integer }
+        posts_count: { type: integer }
+    Me:
+      allOf:
+        - $ref: '#/components/schemas/PublicUser'
+        - type: object
+          properties:
+            bio: { type: string }
+            role: { type: string, enum: [USER, ADMIN] }
+            status: { type: string, enum: [ACTIVE, SUSPENDED] }
+            date_of_birth: { type: string, format: date }
+            guardian_consent: { type: boolean }
+            has_password: { type: boolean, description: false for Google-only accounts }
+            email: { type: string, format: email, nullable: true }
+            created_at: { type: string, format: date-time }
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/PublicUser'
+        - $ref: '#/components/schemas/UserStats'
+        - type: object
+          properties:
+            bio: { type: string }
+            friendship_status: { type: string, enum: [NONE, FRIENDS, PENDING_OUTGOING, PENDING_INCOMING, BLOCKED, SELF] }
+            friend_request_id: { type: string, nullable: true }
+            close_friend: { type: boolean }
+    Privacy:
+      type: object
+      properties:
+        ghost_mode: { type: boolean }
+        sharing_enabled: { type: boolean }
+        audience: { type: string, enum: [FRIENDS, CLOSE_FRIENDS] }
+        share_until: { type: string, format: date-time, nullable: true }
+        precise: { type: boolean }
+        hidden_from: { type: array, items: { $ref: '#/components/schemas/Id' } }
+        guardian_consent_required: { type: boolean }
+        discoverable: { type: boolean }
+    NotificationSettings:
+      type: object
+      description: Notification type -> push on/off
+      properties:
+        FRIEND_REQUEST: { type: boolean }
+        FRIEND_ACCEPTED: { type: boolean }
+        EVENT_JOIN_REQUEST: { type: boolean }
+        EVENT_REQUEST_RESULT: { type: boolean }
+        EVENT_UPDATE: { type: boolean }
+        CHAT_MESSAGE: { type: boolean }
+        SHOP_REVIEW: { type: boolean }
+        MODERATION: { type: boolean }
+        ACCOUNT: { type: boolean }
+    EventInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 80 }
+        type: { $ref: '#/components/schemas/EventType' }
+        description: { type: string, maxLength: 1000 }
+        latitude: { $ref: '#/components/schemas/Latitude' }
+        longitude: { $ref: '#/components/schemas/Longitude' }
+        place_name: { type: string, maxLength: 120 }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        max_participants: { type: integer, minimum: 1, maximum: 1000, nullable: true }
+        audience: { type: string, enum: [EVERYONE, CLOSE_FRIENDS], default: EVERYONE }
+    EventSummary:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        host_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        type: { $ref: '#/components/schemas/EventType' }
+        description: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        place_name: { type: string }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        is_live: { type: boolean }
+        max_participants: { type: integer, nullable: true }
+        participants_count: { type: integer }
+        spots_left: { type: integer, nullable: true }
+        audience: { type: string, enum: [EVERYONE, CLOSE_FRIENDS] }
+        status: { type: string, enum: [OPEN, FULL, CANCELLED, ENDED, HIDDEN, REMOVED] }
+    EventDetail:
+      allOf:
+        - $ref: '#/components/schemas/EventSummary'
+        - type: object
+          properties:
+            host: { $ref: '#/components/schemas/PublicUser' }
+            my_status: { type: string, enum: [HOST, PENDING, APPROVED, REJECTED, CANCELLED, LEFT, KICKED], nullable: true }
+            my_request_id: { type: string, nullable: true }
+            conversation_id: { type: string, nullable: true, description: For the host and approved members }
+            cancel_reason: { type: string, nullable: true }
+    Deal:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        shop_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        discount: { type: string, example: '-20%' }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        status: { type: string, enum: [ACTIVE, ENDED, CANCELLED] }
+        remaining_seconds: { type: integer }
+    MenuItem:
+      type: object
+      required: [name, price]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        price: { type: number, minimum: 0, description: VND }
+        photo_url: { type: string, format: uri, nullable: true }
+    ShopInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 80 }
+        description: { type: string, maxLength: 1000 }
+        address: { type: string, minLength: 3, maxLength: 200 }
+        latitude: { $ref: '#/components/schemas/Latitude' }
+        longitude: { $ref: '#/components/schemas/Longitude' }
+        menu: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/MenuItem' } }
+        hours: { type: string, maxLength: 60, example: '07:00 – 22:00' }
+        cover_url: { type: string, format: uri, nullable: true }
+    ShopSummary:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+        address: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        hours: { type: string }
+        cover_url: { type: string, format: uri, nullable: true }
+        has_active_deal: { type: boolean }
+        active_deal:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Deal' }]
+    ShopDetail:
+      allOf:
+        - $ref: '#/components/schemas/ShopSummary'
+        - type: object
+          properties:
+            owner_id: { $ref: '#/components/schemas/Id' }
+            description: { type: string }
+            menu: { type: array, items: { $ref: '#/components/schemas/MenuItem' } }
+            status: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+            is_owner: { type: boolean }
+            created_at: { type: string, format: date-time }
+            reject_reason: { type: string, nullable: true, description: Owner and admin only }
+            hidden: { type: boolean, description: Owner and admin only }
+    Post:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author: { $ref: '#/components/schemas/PublicUser' }
+        text: { type: string }
+        photo_urls: { type: array, items: { type: string, format: uri } }
+        place_name: { type: string, nullable: true }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        like_count: { type: integer }
+        comment_count: { type: integer }
+        liked_by_me: { type: boolean }
+        saved_by_me: { type: boolean }
+        is_mine: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Comment:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author: { $ref: '#/components/schemas/PublicUser' }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+    Message:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        conversation_id: { $ref: '#/components/schemas/Id' }
+        sender_id: { $ref: '#/components/schemas/Id' }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+    Conversation:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        type: { type: string, enum: [DIRECT, GROUP, EVENT] }
+        name: { type: string, nullable: true }
+        other_user:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/PublicUser' }]
+        event_id: { type: string, nullable: true }
+        member_count: { type: integer }
+        last_message:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Message' }]
+        unread_count: { type: integer }
+        muted: { type: boolean }
+        updated_at: { type: string, format: date-time }
+    Notification:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        type: { type: string, enum: [FRIEND_REQUEST, FRIEND_ACCEPTED, EVENT_JOIN_REQUEST, EVENT_REQUEST_RESULT, EVENT_UPDATE, CHAT_MESSAGE, SHOP_REVIEW, MODERATION, ACCOUNT] }
+        payload: { type: object, additionalProperties: true, description: '`message` plus the IDs needed to open the right screen (event_id, request_id, conversation_id, ...)' }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    ReportResult:
+      type: object
+      properties:
+        created: { type: boolean }
+        report: { type: object, additionalProperties: true }
+        hidden: { type: boolean, description: true when this report hid the post or event }

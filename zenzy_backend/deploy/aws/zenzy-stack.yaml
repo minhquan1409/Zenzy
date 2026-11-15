@@ -1,0 +1,327 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Zenzy API on one EC2 instance (Docker Compose: API container + Caddy for automatic HTTPS),
+  with an Elastic IP, an ECR repository for the image, secrets in SSM Parameter Store, and an
+  optional S3 bucket + CloudFront distribution for uploaded images. MongoDB is MongoDB Atlas
+  (created separately). See server/docs/DEPLOY-AWS.md.
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Public host name of the API, e.g. zenzy-api.duckdns.org or api.example.com. Its DNS A record must point to the Elastic IP output.
+    AllowedPattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+  AcmeEmail:
+    Type: String
+    Description: E-mail address Let's Encrypt uses for certificate expiry notices.
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t2.micro, t3.small]
+    Description: t3.micro / t2.micro are free-tier eligible (x86_64).
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  EnableMedia:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Create the S3 bucket and CloudFront distribution for avatars and photos.
+  CorsOrigins:
+    Type: String
+    Default: ''
+    Description: Optional comma-separated browser origins (admin dashboard). Leave empty if none.
+
+Conditions:
+  WithMedia: !Equals [!Ref EnableMedia, 'true']
+
+Resources:
+  # ---------------------------------------------------------------- image registry
+  ApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${AWS::StackName}-api'
+      ImageScanningConfiguration: { ScanOnPush: true }
+      EmptyOnDelete: true
+      LifecyclePolicy:
+        # Keep only the 5 newest images so storage stays inside the 500 MB free tier.
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"keep last 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}
+
+  # ---------------------------------------------------------------- media (optional)
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Condition: WithMedia
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false   # allows the read-only policy below for media/* only
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      # Browsers (the Flutter web build) POST the signed upload straight to the bucket, so it needs CORS;
+      # native apps do not. Only the site's own origin may do this.
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: [!Sub 'https://${DomainName}']
+            AllowedMethods: [GET, POST]
+            AllowedHeaders: ['*']
+            MaxAge: 3600
+
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: WithMedia
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Photos are read by the app directly from S3. Keys are random UUIDs; only media/ is public.
+          - Sid: PublicReadMedia
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${MediaBucket.Arn}/media/*'
+
+  # ---------------------------------------------------------------- permissions of the server
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # browser shell + remote deploy commands, no SSH
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: zenzy-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ssm:GetParametersByPath, ssm:GetParameters, ssm:GetParameter]
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/zenzy/prod'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/zenzy/prod/*'
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+        - !If
+          - WithMedia
+          - PolicyName: zenzy-media
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: [s3:PutObject, s3:DeleteObject]
+                  Resource: !Sub '${MediaBucket.Arn}/media/*'
+                - Effect: Allow
+                  Action: s3:ListBucket
+                  Resource: !GetAtt MediaBucket.Arn
+          - !Ref AWS::NoValue
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # ---------------------------------------------------------------- network
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Zenzy API - HTTP(S) only; administration through SSM Session Manager
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0, Description: HTTP for Lets Encrypt and redirect }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS API and WebSocket }
+        - { IpProtocol: udp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTP/3 }
+
+  # ---------------------------------------------------------------- server
+  ApiInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt ApiSecurityGroup.GroupId]
+      MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 2 }
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 16, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true }
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-api' }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euxo pipefail
+            # --- packages: Docker + Compose plugin, 1 GB swap for the small instance
+            dnf install -y docker
+            systemctl enable --now docker
+            ARCH=$(uname -m)
+            mkdir -p /usr/local/lib/docker/cli-plugins
+            curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-$ARCH" -o /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            if [ ! -f /swapfile ]; then
+              dd if=/dev/zero of=/swapfile bs=1M count=1024 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+              echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+            fi
+
+            mkdir -p /opt/zenzy && cd /opt/zenzy
+
+            # --- non-secret settings decided by this stack
+            cat > stack.env <<'EOF'
+            REGION=${AWS::Region}
+            REPO_URI=${ApiRepository.RepositoryUri}
+            DOMAIN=${DomainName}
+            ACME_EMAIL=${AcmeEmail}
+            EOF
+
+            cat > app.env <<'EOF'
+            NODE_ENV=production
+            PORT=3000
+            TRUST_PROXY=1
+            JOBS_ENABLED=true
+            AWS_REGION=${AWS::Region}
+            S3_BUCKET=${BucketName}
+            MEDIA_PUBLIC_BASE_URL=${MediaUrl}
+            CORS_ORIGINS=${CorsOrigins}
+            EOF
+
+            # --- reverse proxy: automatic Let's Encrypt certificate, HTTP->HTTPS, WebSocket pass-through.
+            # Same file as deploy/site/Caddyfile: API paths to the container, /download/ and the Flutter web
+            # build from ./site (filled by deploy/aws/deploy-site.ps1).
+            mkdir -p site
+            cat > Caddyfile <<'EOF'
+            {
+              email {$ACME_EMAIL}
+            }
+
+            {$DOMAIN} {
+              encode zstd gzip
+
+              # Security headers for every response (the API adds its own through helmet as well).
+              header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options nosniff
+                Referrer-Policy strict-origin-when-cross-origin
+                Permissions-Policy "camera=(self), geolocation=(self), microphone=()"
+                -Server
+              }
+
+              @api path /v1/* /socket.io/* /health /admin /admin/* /media/*
+              handle @api {
+                reverse_proxy api:3000
+              }
+
+              handle /download* {
+                root * /srv
+                @apk path *.apk
+                header @apk >Content-Type application/vnd.android.package-archive
+                header @apk Content-Disposition attachment
+                header @apk Cache-Control "no-cache"
+                header /download/ Cache-Control "no-cache"
+                file_server
+              }
+
+              handle {
+                root * /srv/web
+                # Content-Security-Policy for the Flutter web app: only the hosts it really loads from
+                # (CanvasKit, Google sign-in, maplibre, OpenFreeMap tiles, S3 uploads), no framing.
+                header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com https://accounts.google.com/gsi/ https://unpkg.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/ https://unpkg.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss://{$DOMAIN} https://www.gstatic.com https://fonts.gstatic.com https://tiles.openfreemap.org https://unpkg.com https://accounts.google.com/gsi/ https://*.amazonaws.com; worker-src 'self' blob: https://unpkg.com; child-src 'self' blob: https://unpkg.com; frame-src https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+                # Shell files change on every build: always revalidate so users get the new version.
+                @shell path / /index.html /flutter_bootstrap.js /flutter_service_worker.js /version.json /manifest.json
+                header @shell Cache-Control "no-cache"
+                try_files {path} /index.html
+                file_server
+              }
+            }
+            EOF
+
+            cat > docker-compose.yml <<'EOF'
+            services:
+              api:
+                image: ${!REPO_URI}:latest
+                env_file: [app.env, secrets.env]
+                restart: unless-stopped
+                expose: ["3000"]
+                logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+              caddy:
+                image: caddy:2.8
+                restart: unless-stopped
+                depends_on: [api]
+                ports: ["80:80", "443:443", "443:443/udp"]
+                environment:
+                  DOMAIN: ${!DOMAIN}
+                  ACME_EMAIL: ${!ACME_EMAIL}
+                volumes:
+                  - ./Caddyfile:/etc/caddy/Caddyfile:ro
+                  - ./site:/srv:ro
+                  - caddy_data:/data
+                  - caddy_config:/config
+            volumes:
+              caddy_data:
+              caddy_config:
+            EOF
+
+            # --- update.sh: reload secrets from SSM, pull the newest image, restart. Run by deploy.ps1.
+            cat > update.sh <<'EOF'
+            #!/bin/bash
+            set -euo pipefail
+            cd /opt/zenzy
+            set -a; . ./stack.env; set +a
+            aws ssm get-parameters-by-path --region "$REGION" --path /zenzy/prod --with-decryption \
+              --query 'Parameters[*].[Name,Value]' --output text \
+              | awk -F'\t' '{ n=$1; sub(".*/", "", n); print n "=" $2 }' > secrets.env.tmp
+            if ! grep -q '^MONGODB_URI=' secrets.env.tmp || ! grep -q '^JWT_SECRET=' secrets.env.tmp; then
+              echo "Missing /zenzy/prod/MONGODB_URI or /zenzy/prod/JWT_SECRET in SSM Parameter Store" >&2; exit 1
+            fi
+            install -m 600 secrets.env.tmp secrets.env && rm -f secrets.env.tmp
+            aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${!REPO_URI%%/*}"
+            docker compose --env-file stack.env pull
+            docker compose --env-file stack.env up -d --remove-orphans
+            docker image prune -f
+            docker compose --env-file stack.env ps
+            EOF
+            chmod 700 update.sh
+
+            # The first run fails harmlessly until an image has been pushed and the secrets exist.
+            ./update.sh || echo "update.sh will succeed after the first deploy"
+          - BucketName: !If [WithMedia, !Ref MediaBucket, '']
+            MediaUrl: !If [WithMedia, !Sub 'https://${MediaBucket.RegionalDomainName}', '']
+
+  ApiElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref ApiInstance
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-api' }
+
+Outputs:
+  ElasticIp:
+    Description: Point the DNS A record of DomainName here, and add it to the MongoDB Atlas IP access list.
+    Value: !Ref ApiElasticIp
+  ApiBaseUrl:
+    Description: Base URL for the Android app (REST). Socket.IO uses the same host at path /socket.io/.
+    Value: !Sub 'https://${DomainName}/v1/'
+  HealthUrl:
+    Value: !Sub 'https://${DomainName}/health'
+  RepositoryUri:
+    Value: !GetAtt ApiRepository.RepositoryUri
+  InstanceId:
+    Value: !Ref ApiInstance
+  MediaBaseUrl:
+    Condition: WithMedia
+    Value: !Sub 'https://${MediaBucket.RegionalDomainName}'
+  MediaBucketName:
+    Condition: WithMedia
+    Value: !Ref MediaBucket

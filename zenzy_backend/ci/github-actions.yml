@@ -1,0 +1,25 @@
+# Spec 4.8 / NFR-18: lint and tests on every push.
+# To enable: copy this file to <repo root>/.github/workflows/server.yml
+name: server
+on:
+  push:
+    paths: ['zenzy_backend/**']
+  pull_request:
+    paths: ['zenzy_backend/**']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: zenzy_backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: zenzy_backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
