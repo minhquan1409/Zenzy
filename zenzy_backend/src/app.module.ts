@@ -1,36 +1,20 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { AuthController } from './auth/auth.controller';
-import { AuthService, GoogleVerifier } from './auth/auth.service';
-import { SecurityController } from './auth/security.controller';
-import { SecurityService } from './auth/security.service';
-import { ChatController } from './chat/chat.controller';
-import { ChatService } from './chat/chat.service';
+import { AuthModule } from './auth/auth.module';
+import { ChatModule } from './chat/chat.module';
 import { AllExceptionsFilter, AuthGuard, Public } from './common/http';
-import { AbuseService, RateLimitGuard } from './core/abuse.service';
-import { AccessService } from './core/access.service';
-import { AppConfig } from './core/config';
+import { RateLimitGuard } from './core/abuse.service';
+import { CoreModule } from './core/core.module';
 import { Db } from './core/db';
-import { JobsService } from './core/jobs.service';
-import { MailService } from './core/mail.service';
-import { MediaService } from './core/media.service';
-import { RealtimeGateway } from './core/realtime.gateway';
-import { IdempotencyService, NotificationsService, PushService, TextModeration } from './core/support.services';
-import { EventsController, MyEventsController } from './events/events.controller';
-import { EventsService } from './events/events.service';
-import { FriendsController } from './friends/friends.controller';
-import { FriendsService } from './friends/friends.service';
-import { LocationController } from './location/location.controller';
-import { LocationService } from './location/location.service';
-import { AdminController, ReportsController } from './moderation/moderation.controller';
-import { ModerationService } from './moderation/moderation.service';
-import { NotificationsController } from './notifications/notifications.controller';
-import { PostsController } from './posts/posts.controller';
-import { PostsService } from './posts/posts.service';
-import { ShopsController } from './shops/shops.controller';
-import { ShopsService } from './shops/shops.service';
-import { UsersController } from './users/users.controller';
-import { UsersService } from './users/users.service';
+import { JobsModule } from './core/jobs.module';
+import { EventsModule } from './events/events.module';
+import { FriendsModule } from './friends/friends.module';
+import { LocationModule } from './location/location.module';
+import { ModerationModule } from './moderation/moderation.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PostsModule } from './posts/posts.module';
+import { ShopsModule } from './shops/shops.module';
+import { UsersModule } from './users/users.module';
 
 @Controller()
 export class HealthController {
@@ -45,47 +29,27 @@ export class HealthController {
   }
 }
 
+/**
+ * Root module: one feature module per backend module in spec 4.5 (COMP-01 to COMP-11), on top of the
+ * global CoreModule. The auth guard, rate-limit guard and error filter apply to every route.
+ */
 @Module({
-  controllers: [
-    HealthController,
-    AuthController,
-    SecurityController,
-    UsersController,
-    LocationController,
-    FriendsController,
-    MyEventsController,
-    EventsController,
-    ShopsController,
-    PostsController,
-    ChatController,
-    NotificationsController,
-    ReportsController,
-    AdminController,
+  imports: [
+    CoreModule,
+    AuthModule,
+    UsersModule,
+    FriendsModule,
+    LocationModule,
+    EventsModule,
+    ShopsModule,
+    PostsModule,
+    ChatModule,
+    NotificationsModule,
+    ModerationModule,
+    JobsModule,
   ],
+  controllers: [HealthController],
   providers: [
-    AppConfig,
-    Db,
-    AccessService,
-    AbuseService,
-    RealtimeGateway,
-    TextModeration,
-    IdempotencyService,
-    PushService,
-    NotificationsService,
-    MediaService,
-    MailService,
-    GoogleVerifier,
-    AuthService,
-    SecurityService,
-    UsersService,
-    LocationService,
-    FriendsService,
-    EventsService,
-    ShopsService,
-    PostsService,
-    ChatService,
-    ModerationService,
-    JobsService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

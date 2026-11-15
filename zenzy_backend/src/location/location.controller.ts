@@ -1,15 +1,14 @@
 import { Body, Controller, Get, HttpCode, Put, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { privacyOf } from '../auth/auth.service';
-import { CurrentUser, decodeCursor, encodeCursor, Err, escapeRegex, parse, zDate, zId, zLat, zLng } from '../common/http';
+import { CurrentUser, Err, parse, zDate, zId, zLat, zLng } from '../common/http';
 import { AbuseService, RateLimit } from '../core/abuse.service';
-import { AccessService } from '../core/access.service';
-import { Db } from '../core/db';
-import { PAGE_SIZE, UserDoc } from '../core/types';
-import { activeEventFilter, eventSummary, EventsService } from '../events/events.service';
+import { UserDoc } from '../core/types';
+import { EventsService } from '../events/events.service';
 import { zNearQuery } from '../events/events.controller';
-import { shopSummary, ShopsService } from '../shops/shops.service';
+import { ShopsService } from '../shops/shops.service';
 import { LocationService } from './location.service';
+import { SearchService } from './search.service';
 
 const zPrivacy = z
   .object({
@@ -31,8 +30,7 @@ export class LocationController {
     private readonly location: LocationService,
     private readonly events: EventsService,
     private readonly shops: ShopsService,
-    private readonly access: AccessService,
-    private readonly db: Db,
+    private readonly searchService: SearchService,
     private readonly abuse: AbuseService,
   ) {}
 
@@ -76,7 +74,7 @@ export class LocationController {
   /** UC-04: keyword search over visible shops and events, nearest first when a position is given. */
   @Get('search')
   @RateLimit({ bucket: 'search', windowSec: 60, perUser: 30, perIp: 100 })
-  async search(@CurrentUser() user: UserDoc, @Query() query: unknown) {
+  search(@CurrentUser() user: UserDoc, @Query() query: unknown) {
     const dto = parse(
       z.object({
         q: z.string().trim().min(1).max(80),
@@ -87,37 +85,6 @@ export class LocationController {
       }),
       query,
     );
-    const offset = decodeCursor<{ o: number }>(dto.cursor)?.o ?? 0;
-    if (!Number.isInteger(offset) || offset < 0 || offset > 10000) throw Err.badRequest('INVALID_CURSOR', 'cursor is not valid');
-    const near = dto.latitude !== undefined && dto.longitude !== undefined ? ([dto.longitude, dto.latitude] as [number, number]) : null;
-    const rx = { $regex: escapeRegex(dto.q), $options: 'i' };
-    const take = offset + PAGE_SIZE + 1;
-    const now = new Date();
-    const geoStage = (match: object) =>
-      near
-        ? [{ $geoNear: { near: { type: 'Point', coordinates: near }, distanceField: 'distance_m', spherical: true, query: match } }]
-        : [{ $match: match }, { $sort: { created_at: -1 } }];
-
-    const results: Array<{ type: 'SHOP' | 'EVENT'; distance_m: number | null; item: unknown }> = [];
-    if (dto.type !== 'EVENT') {
-      const blocked = await this.access.blockRelatedIds(user._id);
-      const match = { status: 'APPROVED', hidden: false, owner_id: { $nin: blocked }, $or: [{ name: rx }, { address: rx }] };
-      const shops = await this.db.shops.aggregate<any>([...geoStage(match), { $limit: take }]).toArray();
-      const deals = await this.shops.activeDeals(shops.map((s) => s._id));
-      for (const s of shops) {
-        results.push({ type: 'SHOP', distance_m: s.distance_m ?? null, item: shopSummary(s, deals.get(s._id.toHexString()) ?? null) });
-      }
-    }
-    if (dto.type !== 'SHOP') {
-      const match = { $and: [activeEventFilter(now), await this.access.visibleEventFilter(user._id), { $or: [{ title: rx }, { place_name: rx }] }] };
-      const events = await this.db.events.aggregate<any>([...geoStage(match), { $limit: take }]).toArray();
-      for (const e of events) results.push({ type: 'EVENT', distance_m: e.distance_m ?? null, item: eventSummary(e, now) });
-    }
-    if (near) results.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
-    const page = results.slice(offset, offset + PAGE_SIZE);
-    return {
-      items: page.map((r) => ({ type: r.type, distance_m: r.distance_m === null ? null : Math.round(r.distance_m), ...(r.item as object) })),
-      next_cursor: results.length > offset + PAGE_SIZE ? encodeCursor({ o: offset + PAGE_SIZE }) : null,
-    };
+    return this.searchService.search(user, dto);
   }
 }

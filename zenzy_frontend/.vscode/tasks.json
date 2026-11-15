@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "adb reverse 3100",
+      "type": "shell",
+      "command": "adb",
+      "args": ["reverse", "tcp:3100", "tcp:3100"],
+      "problemMatcher": []
+    }
+  ]
+}

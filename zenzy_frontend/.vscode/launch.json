@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Zenzy (emulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=GOOGLE_WEB_CLIENT_ID=295741052942-88iii8ju97el1jaoik478jrtmqm21pva.apps.googleusercontent.com"
+      ]
+    },
+    {
+      "name": "Zenzy (điện thoại thật)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "preLaunchTask": "adb reverse 3100",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://127.0.0.1:3100/v1",
+        "--dart-define=GOOGLE_WEB_CLIENT_ID=295741052942-88iii8ju97el1jaoik478jrtmqm21pva.apps.googleusercontent.com"
+      ]
+    },
+    {
+      "name": "Zenzy (server AWS)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=https://zenzy.dpdns.org/v1",
+        "--dart-define=GOOGLE_WEB_CLIENT_ID=295741052942-88iii8ju97el1jaoik478jrtmqm21pva.apps.googleusercontent.com"
+      ]
+    }
+  ]
+}

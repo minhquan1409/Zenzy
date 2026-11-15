@@ -19,17 +19,23 @@ Endpoint list with request and response shapes for the Android app: **[docs/API.
 
 ```
 src/
-  core/           config, Mongo connection + schema/indexes, central authorisation layer
-                  (access.service.ts), Socket.IO gateway, notifications/push, banned words,
-                  idempotency, media, scheduled jobs
+  app.module.ts   root module: imports one feature module per spec component + guards + error filter
+  core/           CoreModule (global): config, address.ts, Mongo connection + schema/indexes, central
+                  authorisation layer (access.service.ts), Socket.IO gateway, notifications/push,
+                  banned words, idempotency, media, mail, abuse limits; JobsModule (scheduled jobs)
   common/http.ts  error format, auth guard, validation helpers, pagination
   auth/ users/ location/ friends/ events/ shops/ posts/ chat/ notifications/ moderation/
+                  one NestJS feature module each: <x>.module.ts, <x>.controller.ts, <x>.service.ts
 scripts/db-init.ts  apply schema, create the first admin, seed banned keywords
 test/               end-to-end tests (real HTTP + Socket.IO against an in-memory replica set)
 deploy/aws/         CloudFormation stack + deploy script
 docs/               API reference, AWS deployment guide
 ci/                 GitHub Actions workflow (copy to .github/workflows/ to enable)
 ```
+
+Layers run one way: **controller** (route, input validation with zod, HTTP status) → **service**
+(business rules and every database access) → **core** (Db, AccessService, gateway). Controllers never touch
+the database.
 
 All visibility decisions (who sees a location, event, shop or post) live in
 `src/core/access.service.ts` and are used by both REST reads and socket emits (NFR-09, spec 4.8).
@@ -94,7 +100,7 @@ Production build: `npm run build && npm start`, or `docker build -t zenzy-api .`
 ## Tests
 
 ```bash
-npm test          # 39 end-to-end tests, ~1 minute; first run downloads a MongoDB binary (~100 MB)
+npm test          # 73 end-to-end tests in 10 files, ~1.5 minutes; first run downloads a MongoDB binary (~100 MB)
 npm run typecheck
 npm run lint
 ```
@@ -108,6 +114,8 @@ spec's sequence diagrams (4.6) plus the business rules:
 | `events.e2e-spec.ts` | SEQ-03 create (validation, 422 banned word saves nothing, idempotency key, 6th active event 409 incl. concurrent creates), SEQ-04 join → host notified by socket, duplicate 409, non-host 403, approve → chat member, FULL at max, leave/kick release seats, cancel, blocked-by-host 403, close-friends visibility, ENDED job |
 | `moderation.e2e-spec.ts` | SEQ-05 one report per user, own content 400, 3rd distinct report hides the post, admin 403 for users, queue order, REMOVE_WARN in one transaction with an audit entry and owner notification, second admin gets 409, DISMISS restores, event auto-hide + REMOVE_SUSPEND blocks login, shop pre-moderation and flash deals |
 | `auth.e2e-spec.ts` | register/login, 5-per-15-min rate limit per account and IP, refresh rotation, Google first sign-in, change password, suspended accounts, account deletion |
+| `abuse.e2e-spec.ts`, `extras.e2e-spec.ts`, `coverage.e2e-spec.ts` | rate limits and IP blocks, sign-up e-mail verification, password reset, admin login, remaining routes |
+| `openapi.e2e-spec.ts`, `postman.e2e-spec.ts` | every route matches `docs/openapi.yaml` and the Postman collection |
 | `social.e2e-spec.ts` | friend requests, direct chat over the socket, idempotent send, blocked messaging, feed paging (20 + cursor), 500-char and 4-photo limits, likes/comments/saves, notification settings, device tokens |
 
 ## Deploy
@@ -117,7 +125,7 @@ Let's Encrypt HTTPS via Caddy + ECR + SSM Parameter Store + S3/CloudFront + Mong
 ≈ $0/month inside the free tier, ≈ $15/month after). After that, every release is:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File server\deploy\aws\deploy.ps1
+powershell -ExecutionPolicy Bypass -File zenzy_backend\deploy\aws\deploy.ps1
 ```
 
 The Android app's base URL is then `https://<your-domain>/v1/` and the Socket.IO URL `https://<your-domain>`.
@@ -138,9 +146,17 @@ The Android app's base URL is then `https://<your-domain>/v1/` and the Socket.IO
 - **Re-joining**: after cancelling or leaving, a user may request again (same document, back to
   PENDING); after REJECTED or KICKED, no.
 
+## Beyond the spec
+
+- **Password reset and sign-up e-mail verification** (`/auth/password/forgot`, `/auth/register/verify`): the spec
+  lists password reset as out of scope. Codes go out by SMTP (logged and returned as `dev_code` when SMTP is
+  not configured).
+- **Admin dashboard** (spec 4.1): a static page served at `/admin/` that calls this same API with an admin token.
+- **Abuse protection** beyond the login limit: per-route rate limits, temporary IP blocks, admin alert e-mails.
+- **OpenAPI + Postman** generated and checked by tests; Docker + AWS deploy scripts.
+
 ## Not implemented, and why
 
-- **Admin dashboard web app** (spec 4.1): a separate client; every admin endpoint it needs exists.
 - **Address/place search** in UC-04: done by the map provider on the client (spec 4.1); `/search` covers shops and events.
 - **DB-level insert-only user for `admin_audit_log`** (marked [verify] in 5.1): the API never updates or
   deletes it (no route exists); a restricted Atlas database role is a manual Atlas step and Atlas M0 may not
@@ -164,5 +180,5 @@ The Android app's base URL is then `https://<your-domain>/v1/` and the Socket.IO
 5. **Event pushes** (`event:created/updated`) go to every connected user allowed to see the event, not only
    those within 5 km; the app filters by its viewport. A distance filter needs each viewer's position, which
    users who do not share location never send.
-6. Spec 1.1/3.2 describe a **Flutter** app with **Google Maps**; the actual app is Kotlin/Compose with
-   MapLibre. The API does not depend on either.
+6. Spec 1.1/3.2 describe a **Flutter** app with **Google Maps** (`zenzy_frontend/` in this repository). The
+   API does not depend on the client framework or the map provider.
